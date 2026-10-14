@@ -9,7 +9,7 @@ struct HeartRateChartCard: View {
 
     private var headerValue: String {
         guard !samples.isEmpty else { return "-- " }
-        return "\(Int(minBPM))–\(Int(maxBPM)) "
+        return "\(Int(minBPM))-\(Int(maxBPM)) "
     }
 
     private var weekRange: String {
@@ -19,7 +19,7 @@ struct HeartRateChartCard: View {
         let fmt = DateFormatter()
         fmt.dateFormat = "d MMM"
         fmt.locale = Locale(identifier: LanguageManager.shared.selectedCode)
-        return "\(fmt.string(from: start)) – \(fmt.string(from: today))"
+        return "\(fmt.string(from: start)) - \(fmt.string(from: today))"
     }
 
     var body: some View {
@@ -32,7 +32,7 @@ struct HeartRateChartCard: View {
                                 .font(SBFont.heading(22))
                                 .foregroundColor(.sbTextPrimary)
                                 .monospacedDigit()
-                            Text("lpm")
+                            Text("bpm")
                                 .font(SBFont.body())
                                 .foregroundColor(.sbTextSecondary)
                         }

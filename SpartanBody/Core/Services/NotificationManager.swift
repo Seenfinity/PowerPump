@@ -57,6 +57,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         super.init()
         UNUserNotificationCenter.current().delegate = self
         checkStatus()
+        // Reminders carry their text from when they were scheduled; after an
+        // in-app language switch they kept arriving in the old language.
+        NotificationCenter.default.addObserver(forName: .languageDidChange, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.isAuthorized else { return }
+            self.scheduleAll()
+        }
     }
 
     // Show banners even when the app is in the foreground (otherwise iOS

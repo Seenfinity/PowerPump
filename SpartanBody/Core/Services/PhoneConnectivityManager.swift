@@ -34,13 +34,16 @@ final class PhoneConnectivityManager: NSObject {
         let foodLog  = FoodLogStore.shared
         let workouts = WorkoutStore.shared
         let health   = HealthKitService.shared
-        let profile  = UserProfile.shared
+        // The same targets as the dashboard (they follow the day's training
+        // in the plan); the profile's weekly average made the widget and the
+        // watch disagree with the phone.
+        let target   = PlanStore.shared.todayTargets(for: UserProfile.shared)
 
         var ctx: [String: Any] = [
             "calories":        Int(foodLog.todayCalories),
-            "calorieTarget":   profile.dailyCalorieTarget,
+            "calorieTarget":   target.kcal,
             "protein":         foodLog.todayProtein,
-            "proteinTarget":   profile.dailyProteinTarget,
+            "proteinTarget":   target.protein,
             "steps":           health.stepsToday,
             "streak":          workouts.currentStreak,
             "water":           WaterStore.shared.todayGlasses,

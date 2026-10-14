@@ -7,6 +7,7 @@ struct SpartanBodyWidgets: WidgetBundle {
     var body: some Widget {
         SpartanDashboardWidget()
         WorkoutLiveActivity()
+        RunLiveActivity()
     }
 }
 
@@ -323,6 +324,161 @@ struct LockScreenWorkoutView: View {
             }
         }
         .padding(16)
+    }
+}
+
+// MARK: - Run Live Activity (Dynamic Island + Lock Screen)
+
+struct RunLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: RunActivityAttributes.self) { context in
+            LockScreenRunView(context: context)
+                .activityBackgroundTint(Color.black.opacity(0.85))
+                .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    HStack(spacing: 6) {
+                        Image(systemName: runIcon(context.attributes.activityRaw))
+                            .foregroundColor(.wAccent)
+                        Text(runLabel(context.attributes.activityRaw))
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                    }
+                    .padding(.leading, 4)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text(formatDistance(context.state.distanceMeters))
+                        .font(.system(size: 15, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundColor(.wCyan)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack(spacing: 14) {
+                        runStat(icon: "clock.fill",
+                                value: formatTime(context.state.movingSeconds),
+                                color: .white)
+                        runStat(icon: "speedometer",
+                                value: formatPace(context.state.paceSecondsPerKm),
+                                color: .wAccent)
+                        runStat(icon: "flame.fill",
+                                value: "\(context.state.calories)",
+                                color: .orange)
+                        Spacer()
+                        if context.state.isPaused {
+                            Text("PAUSED")
+                                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                .foregroundColor(.orange)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            } compactLeading: {
+                Image(systemName: runIcon(context.attributes.activityRaw))
+                    .foregroundColor(.wAccent)
+            } compactTrailing: {
+                Text(formatDistance(context.state.distanceMeters))
+                    .font(.system(size: 13, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundColor(.wCyan)
+            } minimal: {
+                Image(systemName: runIcon(context.attributes.activityRaw))
+                    .foregroundColor(.wAccent)
+            }
+        }
+    }
+}
+
+struct LockScreenRunView: View {
+    let context: ActivityViewContext<RunActivityAttributes>
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 11).fill(Color.wAccent.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                Image(systemName: runIcon(context.attributes.activityRaw))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.wAccent)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(runLabel(context.attributes.activityRaw))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    if context.state.isPaused {
+                        Text("PAUSED")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.18))
+                            .clipShape(Capsule())
+                    }
+                }
+                HStack(spacing: 10) {
+                    Text(formatDistance(context.state.distanceMeters))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(.wCyan)
+                    Text("· \(formatPace(context.state.paceSecondsPerKm)) /km")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.6))
+                    Text("· \(context.state.calories) kcal")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.orange.opacity(0.85))
+                }
+            }
+
+            Spacer()
+
+            Text(formatTime(context.state.movingSeconds))
+                .font(.system(size: 22, weight: .heavy, design: .rounded).monospacedDigit())
+                .foregroundColor(.white)
+        }
+        .padding(16)
+    }
+}
+
+// MARK: - Formatting helpers (extension-local, no app code dependency)
+
+private func runIcon(_ raw: String) -> String {
+    switch raw {
+    case "Walk": return "figure.walk"
+    case "Hike": return "figure.hiking"
+    default:     return "figure.run"
+    }
+}
+
+private func runLabel(_ raw: String) -> String {
+    switch raw {
+    case "Walk": return "Walk"
+    case "Hike": return "Hike"
+    default:     return "Run"
+    }
+}
+
+private func formatDistance(_ meters: Double) -> String {
+    let km = meters / 1000
+    return km < 10 ? String(format: "%.2f km", km) : String(format: "%.1f km", km)
+}
+
+private func formatTime(_ seconds: TimeInterval) -> String {
+    let s = Int(seconds)
+    let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+    return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec)
+                 : String(format: "%d:%02d", m, sec)
+}
+
+private func formatPace(_ secondsPerKm: Double) -> String {
+    guard secondsPerKm > 0, secondsPerKm.isFinite else { return "—:—" }
+    let s = Int(secondsPerKm)
+    return String(format: "%d:%02d", s / 60, s % 60)
+}
+
+private func runStat(icon: String, value: String, color: Color) -> some View {
+    HStack(spacing: 4) {
+        Image(systemName: icon).font(.system(size: 11, weight: .bold)).foregroundColor(color)
+        Text(value)
+            .font(.system(size: 13, weight: .bold, design: .rounded).monospacedDigit())
+            .foregroundColor(.white)
     }
 }
 

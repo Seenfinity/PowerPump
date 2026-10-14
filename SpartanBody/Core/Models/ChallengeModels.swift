@@ -44,13 +44,20 @@ struct ActiveChallenge: Identifiable, Codable {
         completedDayKeys.contains(dayKey(date))
     }
 
-    mutating func markToday() {
-        let key = dayKey(.now)
+    mutating func markToday() { mark(.now) }
+
+    mutating func mark(_ date: Date) {
+        let key = dayKey(date)
         if !completedDayKeys.contains(key) { completedDayKeys.append(key) }
     }
 
-    private func dayKey(_ date: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: date)
-    }
+    private static let keyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private func dayKey(_ date: Date) -> String { Self.keyFormatter.string(from: date) }
 }

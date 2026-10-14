@@ -71,107 +71,37 @@
         }
       }
     },
-    "NSLocationWhenInUseUsageDescription" : {
-      "comment" : "Privacy - Location Usage Description",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump uses your location to map your runs and walks, and to measure distance and pace."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump usa tu ubicación para trazar tu ruta al correr o caminar y medir distancia y ritmo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump utilise votre position pour tracer votre course ou marche et mesurer la distance et l'allure."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump usa la tua posizione per tracciare le tue corse o camminate e misurare distanza e ritmo."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump usa sua localização para traçar suas corridas e caminhadas e medir distância e ritmo."
-          }
-        }
-      }
-    },
-    "NSMotionUsageDescription" : {
-      "comment" : "Privacy - Motion Usage Description",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump uses motion data to detect activity and count steps during your runs and walks."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump usa datos de movimiento para detectar la actividad y contar pasos al correr o caminar."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump utilise les données de mouvement pour détecter l'activité et compter vos pas."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump usa i dati di movimento per rilevare l'attività e contare i passi."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PowerPump usa dados de movimento para detectar atividade e contar passos."
-          }
-        }
-      }
-    },
     "NSCameraUsageDescription" : {
       "comment" : "Privacy - Camera Usage Description",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump uses the camera to analyze your exercise form and scan food."
+            "value" : "PowerPump uses the camera to check your exercise form live, rep by rep, and to scan product barcodes to log their nutrition. Nothing is recorded or uploaded."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump usa la cámara para analizar tu forma de ejercicio y escanear alimentos."
+            "value" : "PowerPump usa la cámara para revisar tu técnica en directo, repetición a repetición, y para escanear códigos de barras y apuntar su nutrición. No se graba ni se sube nada."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump utilise la caméra pour analyser votre forme pendant les exercices et scanner les aliments."
+            "value" : "PowerPump utilise la caméra pour analyser ta technique en direct, répétition par répétition, et pour scanner les codes-barres afin d'enregistrer leur nutrition. Rien n'est enregistré ni envoyé."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump usa la fotocamera per analizzare la forma negli esercizi e scansionare il cibo."
+            "value" : "PowerPump usa la fotocamera per controllare la tua tecnica dal vivo, ripetizione per ripetizione, e per scansionare i codici a barre e registrarne i valori nutrizionali. Non viene registrato né caricato nulla."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump usa a câmera para analisar sua forma nos exercícios e escanear alimentos."
+            "value" : "O PowerPump usa a câmera para analisar sua técnica ao vivo, repetição por repetição, e para escanear códigos de barras e registrar a nutrição. Nada é gravado nem enviado."
           }
         }
       }
@@ -246,37 +176,107 @@
         }
       }
     },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump uses your location to map your runs, walks and outdoor sports and to measure distance and pace, also while your screen is locked during a session."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump usa tu ubicación para trazar tus carreras, caminatas y deportes al aire libre y medir distancia y ritmo, también con la pantalla bloqueada durante la sesión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump utilise ta position pour tracer tes courses, marches et sports en plein air et mesurer la distance et l'allure, même écran verrouillé pendant la séance."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump usa la tua posizione per tracciare corse, camminate e sport all'aperto e misurare distanza e ritmo, anche a schermo bloccato durante la sessione."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O PowerPump usa sua localização para traçar corridas, caminhadas e esportes ao ar livre e medir distância e ritmo, também com a tela bloqueada durante a sessão."
+          }
+        }
+      }
+    },
+    "NSMotionUsageDescription" : {
+      "comment" : "Privacy - Motion Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump uses motion data to detect activity and count steps during your runs and walks."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump usa datos de movimiento para detectar la actividad y contar pasos al correr o caminar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump utilise les données de mouvement pour détecter l'activité et compter vos pas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump usa i dati di movimento per rilevare l'attività e contare i passi."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPump usa dados de movimento para detectar atividade e contar passos."
+          }
+        }
+      }
+    },
     "NSPhotoLibraryUsageDescription" : {
       "comment" : "Privacy - Photo Library Usage Description",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump accesses your photos to scan food and estimate nutrition."
+            "value" : "PowerPump lets you choose a video of your workout to analyze your form on your iPhone. Only the video you pick is used."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump accede a tus fotos para escanear alimentos y estimar la nutrición."
+            "value" : "PowerPump te deja elegir un vídeo de tu entreno para analizar tu técnica en el iPhone. Solo se usa el vídeo que eliges."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump accède à vos photos pour scanner les aliments et estimer les valeurs nutritionnelles."
+            "value" : "PowerPump te permet de choisir une vidéo de ton entraînement pour analyser ta technique sur ton iPhone. Seule la vidéo choisie est utilisée."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump accede alle tue foto per scansionare il cibo e stimare i valori nutrizionali."
+            "value" : "PowerPump ti permette di scegliere un video del tuo allenamento per analizzare la tecnica sull'iPhone. Viene usato solo il video che scegli."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPump acessa suas fotos para escanear alimentos e estimar a nutrição."
+            "value" : "O PowerPump permite escolher um vídeo do seu treino para analisar sua técnica no iPhone. Só o vídeo escolhido é usado."
           }
         }
       }

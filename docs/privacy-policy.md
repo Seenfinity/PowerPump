@@ -51,7 +51,7 @@ If we change this policy, we will update the date above and publish the new vers
 
 ## Contact
 
-Questions? Email us at **powerpump.support@gmail.com**.
+Questions? Email us at **support@powerpumpgym.com**.
 
 ---
 
@@ -108,4 +108,4 @@ Si cambiamos esta política, actualizaremos la fecha de arriba y publicaremos la
 
 ## Contacto
 
-¿Preguntas? Escríbenos a **powerpump.support@gmail.com**.
+¿Preguntas? Escríbenos a **support@powerpumpgym.com**.

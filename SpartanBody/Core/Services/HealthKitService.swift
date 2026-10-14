@@ -16,6 +16,10 @@ final class HealthKitService: ObservableObject {
     @Published var stepsToday:        Int    = 0
     @Published var activeEnergyToday: Double = 0
     @Published var weeklyHeartRate:   [HeartRateSample] = []
+    /// Last night's time asleep, in seconds. Zero when nothing was recorded —
+    /// which is the normal case unless the user wears a watch or uses a
+    /// sleep-tracking app, so the UI has to handle "no data" gracefully.
+    @Published var sleepLastNight:    TimeInterval = 0
 
     // MARK: - Types
 
@@ -35,6 +39,10 @@ final class HealthKitService: ObservableObject {
         .activeEnergyBurned,
         .bodyMass,
         .heartRate,
+        // Recovery signals for the weekly coach review. Only an Apple Watch
+        // records them; without one these just come back empty.
+        .restingHeartRate,
+        .heartRateVariabilitySDNN,
     ]
 
     private var shareTypes: Set<HKSampleType> {
@@ -43,14 +51,56 @@ final class HealthKitService: ObservableObject {
     }
 
     private var readTypes: Set<HKObjectType> {
-        Set(Self.readIDs.compactMap { HKQuantityType.quantityType(forIdentifier: $0) })
+        var types = Set(Self.readIDs.compactMap {
+            HKQuantityType.quantityType(forIdentifier: $0) as HKObjectType?
+        })
+        // Sleep is a category type, not a quantity, so it can't ride along in
+        // readIDs above.
+        if let sleep = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) {
+            types.insert(sleep)
+        }
+        return types
     }
 
     private init() {
         guard isAvailable else { return }
-        let probe = HKQuantityType(.stepCount)
-        isAuthorized = hk.authorizationStatus(for: probe) == .sharingAuthorized
-        if isAuthorized { fetchTodayStats() }
+        // HealthKit never reveals read permission, and authorizationStatus
+        // only reports *write* access — for steps, which the app doesn't
+        // write, it was never "authorized", so every relaunch lost the
+        // connection. "Already asked" is the signal Apple provides.
+        hk.getRequestStatusForAuthorization(toShare: shareTypes, read: readTypes) { [weak self] status, _ in
+            guard status == .unnecessary else { return }
+            DispatchQueue.main.async {
+                self?.isAuthorized = true
+                self?.fetchTodayStats()
+            }
+        }
+    }
+
+    /// Time asleep in a set of samples, counting overlaps once. The watch
+    /// and a sleep app often record the same night, and adding both up
+    /// reported 16-hour nights.
+    static func asleepSeconds(_ samples: [HKCategorySample]) -> TimeInterval {
+        let asleep: Set<Int> = [
+            HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+            HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+            HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+        ]
+        let spans = samples.filter { asleep.contains($0.value) }
+            .map { ($0.startDate, $0.endDate) }.sorted { $0.0 < $1.0 }
+        var total: TimeInterval = 0
+        var current: (Date, Date)?
+        for span in spans {
+            if let c = current, span.0 <= c.1 {
+                current = (c.0, max(c.1, span.1))
+            } else {
+                if let c = current { total += c.1.timeIntervalSince(c.0) }
+                current = span
+            }
+        }
+        if let c = current { total += c.1.timeIntervalSince(c.0) }
+        return total
     }
 
     // MARK: - Authorization
@@ -77,6 +127,30 @@ final class HealthKitService: ObservableObject {
         }
         fetchWeeklyHeartRate()
         fetchLatestBodyMass()
+        fetchLastNightSleep()
+    }
+
+    /// Total time actually asleep last night.
+    ///
+    /// The window starts at 6pm yesterday so a normal bedtime falls inside it,
+    /// and only the "asleep" states count — `inBed` would include lying awake
+    /// reading, which would flatter the number.
+    func fetchLastNightSleep() {
+        guard isAvailable,
+              let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return }
+
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .hour, value: -6,
+                             to: cal.startOfDay(for: .now)) ?? .now
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now)
+
+        let query = HKSampleQuery(sampleType: type, predicate: predicate,
+                                  limit: HKObjectQueryNoLimit,
+                                  sortDescriptors: nil) { [weak self] _, samples, _ in
+            let total = Self.asleepSeconds(samples as? [HKCategorySample] ?? [])
+            DispatchQueue.main.async { self?.sleepLastNight = total }
+        }
+        hk.execute(query)
     }
 
     /// Pulls the most recent body-mass sample from Apple Health (e.g. from a
@@ -94,6 +168,9 @@ final class HealthKitService: ObservableObject {
             let kg = s.quantity.doubleValue(for: .gramUnit(with: .kilo))
             let date = s.endDate
             DispatchQueue.main.async {
+                // An old scale reading mustn't overwrite a newer weigh-in
+                // logged in the app.
+                if let latest = ProgressStore.shared.weightEntries.last?.date, latest > date { return }
                 ProgressStore.shared.addEntry(weightKg: kg, date: date)
                 if abs(UserProfile.shared.weightKg - kg) > 0.05 {
                     UserProfile.shared.weightKg = kg
@@ -134,6 +211,71 @@ final class HealthKitService: ObservableObject {
         }
 
         hk.execute(query)
+    }
+
+    // MARK: - Daily history (coach weekly review)
+
+    typealias DailyHistory = HealthDailyHistory
+
+    /// Reads the series the weekly review needs. Four queries in parallel;
+    /// the completion runs on the main queue once all of them are back.
+    func fetchDailyHistory(days: Int, completion: @escaping (DailyHistory) -> Void) {
+        guard isAvailable else { completion(DailyHistory()); return }
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .day, value: -days, to: cal.startOfDay(for: .now)) ?? .now
+        var result = DailyHistory()
+        let lock = NSLock()
+        let group = DispatchGroup()
+
+        func collection(_ id: HKQuantityTypeIdentifier, _ option: HKStatisticsOptions, unit: HKUnit,
+                        store: @escaping (inout DailyHistory, [Date: Double]) -> Void) {
+            guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return }
+            group.enter()
+            let q = HKStatisticsCollectionQuery(
+                quantityType: type,
+                quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: .now),
+                options: option, anchorDate: start, intervalComponents: DateComponents(day: 1))
+            q.initialResultsHandler = { _, results, _ in
+                var values: [Date: Double] = [:]
+                results?.enumerateStatistics(from: start, to: .now) { stat, _ in
+                    let qty = option == .cumulativeSum ? stat.sumQuantity() : stat.averageQuantity()
+                    if let v = qty?.doubleValue(for: unit), v > 0 {
+                        values[cal.startOfDay(for: stat.startDate)] = v
+                    }
+                }
+                lock.lock(); store(&result, values); lock.unlock()
+                group.leave()
+            }
+            hk.execute(q)
+        }
+
+        collection(.stepCount, .cumulativeSum, unit: .count()) { $0.steps = $1 }
+        collection(.restingHeartRate, .discreteAverage, unit: HKUnit(from: "count/min")) { $0.restingHR = $1 }
+        collection(.heartRateVariabilitySDNN, .discreteAverage, unit: .secondUnit(with: .milli)) { $0.hrv = $1 }
+
+        // Sleep: asleep time per night, credited to the day the night ends.
+        if let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) {
+            group.enter()
+            let asleep: Set<Int> = [
+                HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+                HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+            ]
+            let q = HKSampleQuery(sampleType: sleepType,
+                                  predicate: HKQuery.predicateForSamples(withStart: start, end: .now),
+                                  limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                let byNight = Dictionary(grouping: (samples as? [HKCategorySample] ?? [])
+                    .filter { asleep.contains($0.value) }) { cal.startOfDay(for: $0.endDate) }
+                var nights: [Date: Double] = [:]
+                for (day, group) in byNight { nights[day] = Self.asleepSeconds(group) / 3600 }
+                lock.lock(); result.sleepHours = nights; lock.unlock()
+                group.leave()
+            }
+            hk.execute(q)
+        }
+
+        group.notify(queue: .main) { completion(result) }
     }
 
     private func fetchSum(_ id: HKQuantityTypeIdentifier, unit: HKUnit, completion: @escaping (Double) -> Void) {

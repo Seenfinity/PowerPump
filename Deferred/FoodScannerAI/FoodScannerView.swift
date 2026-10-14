@@ -504,7 +504,7 @@ struct CameraPickerView: View {
                             .clipShape(Circle())
                     }
                     Spacer()
-                    Text("Center your plate")
+                    Text(LocalizedStringKey("Center your plate"))
                         .font(SBFont.caption())
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -557,7 +557,7 @@ struct CameraPickerView: View {
 
                 // Bottom controls
                 VStack(spacing: 16) {
-                    Text("Hold steady. Get the whole plate in frame.")
+                    Text(LocalizedStringKey("Hold steady. Get the whole plate in frame."))
                         .font(SBFont.caption())
                         .foregroundColor(.white.opacity(0.85))
                         .multilineTextAlignment(.center)

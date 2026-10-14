@@ -376,10 +376,15 @@ struct ProgramSessionView: View {
         stopTimer()
         location.stopTracking()
         let session = run.finish()
-        let globalDay = progress.globalDay(in: program,
-                                           weekNumber: weekNumber,
-                                           dayNumber: day.dayNumber)
-        progress.markComplete(globalDay, in: program)
+        // Stopping early keeps the run, but only a (nearly) finished session
+        // completes the day: saving after one minute used to unlock the next
+        // day, so the whole program could be skipped by accident.
+        if day.totalSeconds == 0 || totalElapsed >= Double(day.totalSeconds) * 0.8 {
+            let globalDay = progress.globalDay(in: program,
+                                               weekNumber: weekNumber,
+                                               dayNumber: day.dayNumber)
+            progress.markComplete(globalDay, in: program)
+        }
         coach.announceFinish()
         coach.cueFinish()
         // Show summary if we got a real route, otherwise just dismiss.

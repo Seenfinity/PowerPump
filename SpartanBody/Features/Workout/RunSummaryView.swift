@@ -185,10 +185,10 @@ private struct RouteMap: UIViewRepresentable {
         // Start + end pins so the user can see where they began and ended.
         let start = MKPointAnnotation()
         start.coordinate = coordinates.first!
-        start.title = "Start"
+        start.title = RouteMapStatic.startTitle
         let end = MKPointAnnotation()
         end.coordinate = coordinates.last!
-        end.title = "Finish"
+        end.title = NSLocalizedString("map.finish", comment: "")
         map.addAnnotations([start, end])
 
         // Fit the camera to the whole route with a comfortable padding.
@@ -215,10 +215,16 @@ private struct RouteMap: UIViewRepresentable {
             let id = "endpoint"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: id) as? MKMarkerAnnotationView
                        ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
-            view.glyphImage = UIImage(systemName: annotation.title == "Start" ? "play.fill" : "flag.checkered")
-            view.markerTintColor = annotation.title == "Start" ? .systemGreen : .systemRed
+            let isStart = annotation.title == RouteMapStatic.startTitle
+            view.glyphImage = UIImage(systemName: isStart ? "play.fill" : "flag.checkered")
+            view.markerTintColor = isStart ? .systemGreen : .systemRed
             view.displayPriority = .required
             return view
         }
     }
+}
+
+/// The start pin's title, localized; the marker style is picked by it.
+enum RouteMapStatic {
+    static var startTitle: String { NSLocalizedString("map.start", comment: "") }
 }

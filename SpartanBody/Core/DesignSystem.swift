@@ -159,6 +159,23 @@ struct SBStatBox: View {
     }
 }
 
+/// A photo that fills whatever frame it's given and is cropped to it.
+///
+/// Don't use `Image(...).resizable().aspectRatio(contentMode: .fill)` for
+/// banners directly: the image reports its scaled-up width to the layout, so a
+/// wide photo in a tall frame (or on a narrow phone) makes the whole screen
+/// wider than the display. `Color.clear` takes exactly the proposed size and
+/// the image only fills it as an overlay.
+struct SBPhoto: View {
+    let name: String
+
+    var body: some View {
+        Color.clear
+            .overlay(Image(name).resizable().scaledToFill())
+            .clipped()
+    }
+}
+
 struct SBProgressBar: View {
     let progress: Double  // 0.0 – 1.0
     var color: Color = .sbAccent

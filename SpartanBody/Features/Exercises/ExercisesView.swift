@@ -11,7 +11,12 @@ struct ExercisesView: View {
         if let cat = selectedCategory { list = list.filter { $0.category == cat } }
         if selectedLocation != .both { list = list.filter { $0.location == selectedLocation || $0.location == .both } }
         if !searchText.isEmpty {
-            list = list.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            let opts: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+            list = list.filter {
+                $0.name.range(of: searchText, options: opts) != nil
+                || EXL($0.name).range(of: searchText, options: opts) != nil
+                || EXL($0.primaryMuscle).range(of: searchText, options: opts) != nil
+            }
         }
         return list
     }
@@ -23,7 +28,7 @@ struct ExercisesView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Exercises")
+                    Text(EXL("Exercises"))
                         .font(SBFont.display(28))
                         .foregroundColor(.sbTextPrimary)
                     Spacer()
@@ -44,7 +49,7 @@ struct ExercisesView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.sbTextSecondary)
-                        TextField("Search exercises...", text: $searchText)
+                        TextField(EXL("Search exercises..."), text: $searchText)
                             .font(SBFont.body())
                             .foregroundColor(.sbTextPrimary)
                     }
@@ -63,7 +68,7 @@ struct ExercisesView: View {
                         Button {
                             withAnimation(.spring(response: 0.25)) { selectedLocation = loc }
                         } label: {
-                            Text(loc == .both ? "All" : loc.rawValue)
+                            Text(loc == .both ? EXL("All") : EXL(loc.rawValue))
                                 .font(SBFont.caption())
                                 .foregroundColor(selectedLocation == loc ? .white : .sbTextSecondary)
                                 .padding(.horizontal, 14)
@@ -82,11 +87,11 @@ struct ExercisesView: View {
                 // Category scroll
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        CategoryChip(label: "All", icon: "square.grid.2x2.fill", isSelected: selectedCategory == nil) {
+                        CategoryChip(label: EXL("All"), icon: "square.grid.2x2.fill", isSelected: selectedCategory == nil) {
                             withAnimation(.spring(response: 0.25)) { selectedCategory = nil }
                         }
                         ForEach(MuscleGroup.allCases, id: \.self) { group in
-                            CategoryChip(label: group.rawValue, icon: group.icon, isSelected: selectedCategory == group) {
+                            CategoryChip(label: EXL(group.rawValue), icon: group.icon, isSelected: selectedCategory == group) {
                                 withAnimation(.spring(response: 0.25)) {
                                     selectedCategory = selectedCategory == group ? nil : group
                                 }
@@ -104,7 +109,7 @@ struct ExercisesView: View {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 40))
                             .foregroundColor(.sbTextSecondary)
-                        Text("No exercises found")
+                        Text(EXL("No exercises found"))
                             .font(SBFont.heading(18))
                             .foregroundColor(.sbTextSecondary)
                     }
@@ -180,12 +185,12 @@ struct ExerciseRow: View {
             .cornerRadius(12)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(exercise.name)
+                Text(EXL(exercise.name))
                     .font(SBFont.heading(16))
                     .foregroundColor(.sbTextPrimary)
 
                 HStack(spacing: 6) {
-                    Text(exercise.primaryMuscle)
+                    Text(EXL(exercise.primaryMuscle))
                         .font(SBFont.caption())
                         .foregroundColor(.sbTextSecondary)
 
@@ -193,7 +198,7 @@ struct ExerciseRow: View {
                         .fill(Color.sbBorder)
                         .frame(width: 3, height: 3)
 
-                    Text(exercise.equipment.rawValue)
+                    Text(EXL(exercise.equipment.rawValue))
                         .font(SBFont.caption())
                         .foregroundColor(.sbTextSecondary)
                 }
@@ -201,7 +206,7 @@ struct ExerciseRow: View {
                 HStack(spacing: 6) {
                     DifficultyBadge(difficulty: exercise.difficulty)
                     if exercise.location == .home || exercise.location == .both {
-                        LocationBadge(label: "Home")
+                        LocationBadge(label: EXL("Home"))
                     }
                 }
             }
@@ -231,7 +236,7 @@ struct DifficultyBadge: View {
     }
 
     var body: some View {
-        Text(difficulty.rawValue)
+        Text(EXL(difficulty.rawValue))
             .font(SBFont.label(10))
             .foregroundColor(color)
             .padding(.horizontal, 8)

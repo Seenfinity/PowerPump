@@ -21,6 +21,11 @@ final class RunStore: ObservableObject {
     private var pausedAccum: TimeInterval = 0
     /// When the current pause began (nil if not paused).
     private var pauseStartedAt: Date?
+    /// The next fix starts a new stretch without adding distance: after a
+    /// pause (the walk back to the start isn't part of the run) and after
+    /// the GPS kept disagreeing with the last point.
+    private var needsAnchor = false
+    private var rejectedInARow = 0
 
     private init() {
         loadHistory()
@@ -36,6 +41,8 @@ final class RunStore: ObservableObject {
         guard activeSession == nil else { return }
         var session = RunSession(activity: activity)
         session.startedAt = .now
+        needsAnchor = false
+        rejectedInARow = 0
         sessionStartedAt = session.startedAt
         pausedAccum = 0
         pauseStartedAt = nil
@@ -43,6 +50,7 @@ final class RunStore: ObservableObject {
         isPaused = false
         location.startTracking()
         startTicker()
+        RunLiveActivityManager.shared.sync(session: activeSession, isPaused: false)
     }
 
     func pause() {
@@ -50,6 +58,7 @@ final class RunStore: ObservableObject {
         syncMovingSeconds()           // commit elapsed time before freezing the clock
         isPaused = true
         pauseStartedAt = .now
+        RunLiveActivityManager.shared.sync(session: activeSession, isPaused: true)
     }
 
     func resume() {
@@ -59,6 +68,8 @@ final class RunStore: ObservableObject {
         }
         pauseStartedAt = nil
         isPaused = false
+        needsAnchor = true
+        RunLiveActivityManager.shared.sync(session: activeSession, isPaused: false)
     }
 
     func finish() -> RunSession? {
@@ -81,6 +92,7 @@ final class RunStore: ObservableObject {
         sessionStartedAt = nil
         pauseStartedAt = nil
         pausedAccum = 0
+        RunLiveActivityManager.shared.sync(session: nil, isPaused: false)
         return session
     }
 
@@ -92,6 +104,7 @@ final class RunStore: ObservableObject {
         sessionStartedAt = nil
         pauseStartedAt = nil
         pausedAccum = 0
+        RunLiveActivityManager.shared.sync(session: nil, isPaused: false)
     }
 
     // MARK: - Time tracking (date-based, survives background)
@@ -141,21 +154,30 @@ final class RunStore: ObservableObject {
             timestamp: new.timestamp
         )
 
-        if let last = session.route.last {
+        if let last = session.route.last, !needsAnchor {
             let lastLoc = CLLocation(latitude: last.latitude, longitude: last.longitude)
             let delta = new.distance(from: lastLoc)
-            // Drop tiny GPS jitter (< 3 m) so a stationary user doesn't
-            // accumulate phantom distance, but accept anything plausibly real.
-            if delta > 3 && delta < 200 {
-                session.distanceMeters += delta
-            } else if delta >= 200 {
-                // 200m+ jump is almost certainly a GPS glitch; skip it.
+            let seconds = max(new.timestamp.timeIntervalSince(last.timestamp), 1)
+            // A glitch is a jump no runner could make in the time since the
+            // last fix. A fixed 200 m cut-off also threw away real distance
+            // after a tunnel or a background pause — and every later fix was
+            // compared to that stale point, so the run stopped counting.
+            if delta / seconds > session.activity.maxPlausibleSpeed {
+                rejectedInARow += 1
+                // The last point was the bad one: start over from here.
+                if rejectedInARow >= 3 { needsAnchor = true }
                 return
             }
+            // Drop tiny GPS jitter (< 3 m) so a stationary user doesn't
+            // accumulate phantom distance.
+            if delta > 3 { session.distanceMeters += delta }
         }
+        needsAnchor = false
+        rejectedInARow = 0
 
         session.route.append(point)
         activeSession = session
+        RunLiveActivityManager.shared.sync(session: activeSession, isPaused: isPaused)
     }
 
     // MARK: - History persistence

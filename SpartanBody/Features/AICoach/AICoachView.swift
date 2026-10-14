@@ -1,23 +1,42 @@
 import SwiftUI
 
 struct AICoachView: View {
+    /// True when this is the plan reveal right after onboarding: the screen is
+    /// then the app's root, so it finishes with "Start" instead of a close X.
+    var isFirstReveal: Bool = false
+    /// Called when the user finishes the first reveal.
+    var onFinishReveal: (() -> Void)? = nil
+
     @ObservedObject private var profile  = UserProfile.shared
     @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
 
+    @ObservedObject private var planStore = PlanStore.shared
+
     @State private var extraContext = ""
-    @State private var plan: FitnessPlan?
     @State private var isGenerating = false
+    /// "New plan" shows the form over the current plan instead of deleting
+    /// it: the old plan carries the coach's memory (cycle week, calorie
+    /// adjustment), and the next plan needs it.
+    @State private var editing = false
     @State private var selectedDay: DayPlan?
+    /// Day shown in the menu; nil = today.
+    @State private var menuDay: Int?
+    @State private var openRecipe: PlannedRecipe?
+
+    /// The plan comes from the store, so it survives leaving this screen and
+    /// relaunching the app.
+    private var plan: FitnessPlan? { planStore.plan }
 
     var body: some View {
         ZStack {
             Color.sbBackground.ignoresSafeArea()
-            if isGenerating        { loadingView }
-            else if let p = plan   { planView(p) }
-            else                   { setupView  }
+            if isGenerating                  { loadingView }
+            else if let p = plan, !editing   { planView(p) }
+            else                             { setupView  }
         }
         .sheet(item: $selectedDay) { DayDetailSheet(day: $0) }
+        .sheet(item: $openRecipe) { RecipeDetailView(recipe: $0.recipe, initialServings: $0.servings) }
     }
 
     // MARK: - Setup
@@ -27,7 +46,9 @@ struct AICoachView: View {
             VStack(spacing: 24) {
                 // Top bar
                 HStack {
-                    Button { dismiss() } label: {
+                    Button {
+                        if editing { withAnimation(.easeInOut) { editing = false } } else { dismiss() }
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.sbTextSecondary)
@@ -98,6 +119,9 @@ struct AICoachView: View {
             }
             .padding(20)
         }
+        // Show what the user wrote last time (a bad knee, training at home…)
+        // instead of an empty box: the weekly automatic plan still uses it.
+        .onAppear { if extraContext.isEmpty { extraContext = planStore.extraContext } }
     }
 
     // MARK: - Profile summary
@@ -182,32 +206,49 @@ struct AICoachView: View {
     private func planView(_ p: FitnessPlan) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
-                // Top bar
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.sbTextSecondary)
-                            .frame(width: 34, height: 34)
-                            .background(Color.sbSurface)
-                            .clipShape(Circle())
+                // Top bar — on the first reveal there is nothing to dismiss to,
+                // so the close button and "new plan" are hidden.
+                if !isFirstReveal {
+                    HStack {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.sbTextSecondary)
+                                .frame(width: 34, height: 34)
+                                .background(Color.sbSurface)
+                                .clipShape(Circle())
+                        }
+                        Spacer()
+                        Button {
+                            withAnimation(.easeInOut) { editing = true }
+                        } label: {
+                            Label(LocalizedStringKey(CoachL.newPlan), systemImage: "arrow.clockwise")
+                                .font(SBFont.caption())
+                                .foregroundColor(.sbAccent)
+                        }
                     }
-                    Spacer()
-                    Button {
-                        withAnimation(.easeInOut) { plan = nil }
-                    } label: {
-                        Label(LocalizedStringKey(CoachL.newPlan), systemImage: "arrow.clockwise")
-                            .font(SBFont.caption())
-                            .foregroundColor(.sbAccent)
-                    }
+                } else {
+                    firstRevealHeader
                 }
 
                 motivationBanner(p.motivation)
+                if let report = p.report { reportCard(report) }
                 analysisCard(p.analysis)
                 weeklySection(p.weeklySchedule)
-                nutritionSection(p.nutritionPlan)
-                if !p.weeklyMeals.isEmpty { weeklyMealsSection(p.weeklyMeals) }
+                nutritionSection(p.nutritionPlan,
+                                 variesByDay: p.weeklyMeals.contains { $0.target != nil })
+                if !p.weeklyMeals.isEmpty { menuSection(p.weeklyMeals) }
                 if !p.tips.isEmpty { tipsSection(p.tips) }
+                SourcesLink()
+                    .frame(maxWidth: .infinity)
+
+                if isFirstReveal {
+                    SBPrimaryButton(title: EXL("Start training")) {
+                        HapticManager.heavy()
+                        onFinishReveal?()
+                    }
+                    .padding(.top, 4)
+                }
 
                 Spacer(minLength: 80)
             }
@@ -216,6 +257,32 @@ struct AICoachView: View {
     }
 
     // MARK: - Plan sub-views
+
+    /// Shown instead of the toolbar the first time: frames the plan as the
+    /// payoff for the questionnaire the user just filled in.
+    private var firstRevealHeader: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(Color.sbAccent.opacity(0.15))
+                    .frame(width: 64, height: 64)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundColor(.sbAccent)
+            }
+            Text(EXL("Your plan is ready"))
+                .font(SBFont.display(26))
+                .foregroundColor(.sbTextPrimary)
+                .multilineTextAlignment(.center)
+            Text(EXL("Built from your goal, your body and the sport you practice."))
+                .font(SBFont.body())
+                .foregroundColor(.sbTextSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+    }
 
     private func motivationBanner(_ text: String) -> some View {
         HStack(spacing: 12) {
@@ -273,11 +340,21 @@ struct AICoachView: View {
         }
     }
 
-    private func nutritionSection(_ n: AINutritionPlan) -> some View {
+    private func nutritionSection(_ n: AINutritionPlan, variesByDay: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(LocalizedStringKey(CoachL.nutritionTargets))
-                .font(SBFont.heading())
-                .foregroundColor(.sbTextPrimary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(LocalizedStringKey(CoachL.nutritionTargets))
+                    .font(SBFont.heading())
+                    .foregroundColor(.sbTextPrimary)
+                // With carb cycling these are the week's average, not every
+                // day's number — say so, or a heavy day looks like a mistake.
+                if variesByDay {
+                    Text("coach.ui.weeklyAverage")
+                        .font(SBFont.label(11)).foregroundColor(.sbAccent).textCase(.uppercase)
+                    Text("coach.ui.variesByDay")
+                        .font(SBFont.caption()).foregroundColor(.sbTextSecondary)
+                }
+            }
 
             HStack(spacing: 0) {
                 nutritionStat(CoachL.calories, "\(n.calories)", "kcal")
@@ -334,36 +411,281 @@ struct AICoachView: View {
         }
     }
 
-    private func weeklyMealsSection(_ meals: [DayMeals]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Weekly Menu")
-                .font(SBFont.heading())
-                .foregroundColor(.sbTextPrimary)
+    // MARK: - Coach report
 
-            VStack(spacing: 0) {
-                ForEach(Array(meals.enumerated()), id: \.element.id) { i, day in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(day.day)
-                            .font(SBFont.heading(14))
-                            .foregroundColor(.sbAccent)
-                        mealLine(icon: "sunrise.fill",  name: day.breakfast)
-                        mealLine(icon: "sun.max.fill",  name: day.lunch)
-                        mealLine(icon: "moon.fill",     name: day.dinner)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    if i < meals.count - 1 {
-                        Divider().background(Color.sbBorder)
+    /// What the coach read from the last week and what it changed because of
+    /// it — the part that makes the plan feel like it's paying attention.
+    private func reportCard(_ r: CoachReport) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Label(LocalizedStringKey("coach.ui.yourWeek"), systemImage: "chart.line.uptrend.xyaxis")
+                    .font(SBFont.heading())
+                    .foregroundColor(.sbTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 4)
+                Text(verbatim: String(format: NSLocalizedString("coach.ui.blockWeek", comment: ""), r.blockWeek))
+                    .font(SBFont.label(11))
+                    .foregroundColor(r.volume == .deload ? .orange : .sbAccent)
+                    .padding(.horizontal, 9).padding(.vertical, 4)
+                    .background(Capsule().fill((r.volume == .deload ? Color.orange : .sbAccent).opacity(0.15)))
+            }
+
+            HStack(spacing: 8) {
+                reportStat(icon: "dumbbell.fill", label: "Workouts",
+                           value: r.sessionsPlanned.map { "\(r.sessionsDone)/\($0)" } ?? "\(r.sessionsDone)")
+                reportStat(icon: "scalemass.fill", label: "Weight",
+                           value: r.weightRate.map { String(format: "%+.1f", $0) } ?? "—",
+                           unit: r.weightRate == nil ? nil : NSLocalizedString("coach.ui.perWeek", comment: ""))
+                reportStat(icon: "fork.knife", label: "coach.ui.avgIntake",
+                           value: r.avgCalories.map { "\($0)" } ?? "—",
+                           unit: r.avgCalories == nil ? nil : "kcal")
+            }
+
+            if !r.notes.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(r.notes, id: \.self) { note in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "arrow.turn.down.right")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.sbAccent)
+                                .padding(.top, 4)
+                            Text(verbatim: note)
+                                .font(SBFont.body(14))
+                                .foregroundColor(.sbTextPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
             }
-            .background(Color.sbSurface)
-            .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sbBorder))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.sbSurface)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.sbAccent.opacity(0.35)))
+    }
+
+    private func reportStat(icon: String, label: String, value: String, unit: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.sbAccent)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(verbatim: value)
+                    .font(SBFont.heading(17))
+                    .foregroundColor(.sbTextPrimary)
+                    .monospacedDigit()
+                if let unit {
+                    Text(verbatim: unit).font(SBFont.label(9)).foregroundColor(.sbTextSecondary)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            Text(LocalizedStringKey(label))
+                .font(SBFont.label(10))
+                .foregroundColor(.sbTextSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.sbSurfaceRaised)
+        .cornerRadius(12)
+    }
+
+    // MARK: - Menu
+
+    /// One day's meals at a time, with portions and macros, picked from a row
+    /// of days — seven full menus stacked would be a wall of text.
+    private func menuSection(_ days: [DayMeals]) -> some View {
+        let sel = min(max(menuDay ?? planStore.todayIndex ?? 0, 0), days.count - 1)
+        let day = days[sel]
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("coach.ui.menu")
+                .font(SBFont.heading())
+                .foregroundColor(.sbTextPrimary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(days.enumerated()), id: \.offset) { i, d in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { menuDay = i }
+                        } label: {
+                            VStack(spacing: 5) {
+                                Text(verbatim: String(d.day.prefix(3)))
+                                    .font(SBFont.label(11))
+                                Circle()
+                                    .fill(i == sel ? Color.white : (d.intensity ?? .rest).tint)
+                                    .frame(width: 6, height: 6)
+                            }
+                            .foregroundColor(i == sel ? .white : .sbTextSecondary)
+                            .frame(width: 48, height: 48)
+                            .background(RoundedRectangle(cornerRadius: 12)
+                                .fill(i == sel ? Color.sbAccent : Color.sbSurface))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+
+            if let meals = day.meals, !meals.isEmpty {
+                VStack(spacing: 0) {
+                    menuHeader(day)
+                    ForEach(meals) { meal in
+                        Divider().background(Color.sbBorder)
+                        mealRow(meal)
+                    }
+                    if let tot = day.totals {
+                        Divider().background(Color.sbBorder)
+                        menuTotals(tot)
+                    }
+                }
+                .background(Color.sbSurface)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sbBorder))
+            } else {
+                // Plans saved before portions existed: just the dish names.
+                VStack(alignment: .leading, spacing: 8) {
+                    legacyMealLine(icon: "sunrise.fill", name: day.breakfast)
+                    legacyMealLine(icon: "sun.max.fill", name: day.lunch)
+                    legacyMealLine(icon: "moon.fill",    name: day.dinner)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.sbSurface)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sbBorder))
+            }
         }
     }
 
-    private func mealLine(icon: String, name: String) -> some View {
+    private func menuHeader(_ day: DayMeals) -> some View {
+        HStack(spacing: 8) {
+            Text(verbatim: day.day)
+                .font(SBFont.heading(15))
+                .foregroundColor(.sbTextPrimary)
+            if let intensity = day.intensity {
+                IntensityBadge(intensity: intensity)
+            }
+            Spacer()
+            if let t = day.target {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(verbatim: "\(t.kcal) kcal")
+                        .font(SBFont.heading(14))
+                        .foregroundColor(.sbTextPrimary)
+                    Text("coach.ui.target")
+                        .font(SBFont.label(9))
+                        .foregroundColor(.sbTextSecondary)
+                }
+            }
+        }
+        .padding(14)
+    }
+
+    private func mealRow(_ m: PlannedMeal) -> some View {
+        let recipe = m.recipeID.flatMap { id in RecipeDatabase.all.first { $0.id == id } }
+        return Button {
+            if let recipe { openRecipe = PlannedRecipe(recipe: recipe, servings: m.servings ?? 1) }
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: m.slot.icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.sbAccent)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Color.sbAccentDim))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(LocalizedStringKey(m.slot.labelKey))
+                        .font(SBFont.label(10))
+                        .foregroundColor(.sbTextSecondary)
+                        .textCase(.uppercase)
+                    if m.recipeID == nil, let items = m.items {
+                        // Food combinations: every component with its grams.
+                        Text(verbatim: itemsText(items))
+                            .font(SBFont.body(14))
+                            .foregroundColor(.sbTextPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(LocalizedStringKey(m.name))
+                            .font(SBFont.body(15))
+                            .foregroundColor(.sbTextPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(verbatim: servingsText(m.servings ?? 1))
+                            .font(SBFont.caption())
+                            .foregroundColor(.sbAccent)
+                        // Protein side added by the planner (seitan, chicken…).
+                        if let side = m.items, !side.isEmpty {
+                            Text(verbatim: "+ " + itemsText(side))
+                                .font(SBFont.caption())
+                                .foregroundColor(.sbTextSecondary)
+                        }
+                    }
+                }
+                Spacer(minLength: 6)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(verbatim: "\(m.kcal)")
+                        .font(SBFont.heading(15))
+                        .foregroundColor(.sbTextPrimary)
+                        .monospacedDigit()
+                    Text(verbatim: "kcal · P \(m.protein) g")
+                        .font(SBFont.label(9))
+                        .foregroundColor(.sbTextSecondary)
+                }
+                if recipe != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color.sbTextSecondary.opacity(0.5))
+                }
+            }
+            .padding(14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // Not `.disabled`: that greys the row out, and a snack isn't
+        // unavailable — it just has no recipe to open.
+        .allowsHitTesting(recipe != nil)
+    }
+
+    private func menuTotals(_ t: MacroTarget) -> some View {
+        HStack(spacing: 0) {
+            Text("coach.ui.total")
+                .font(SBFont.label(11))
+                .foregroundColor(.sbTextSecondary)
+                .textCase(.uppercase)
+            Spacer()
+            Text(verbatim: "\(t.kcal) kcal  ·  P \(t.protein)  ·  C \(t.carbs)  ·  G \(t.fat)")
+                .font(SBFont.caption())
+                .foregroundColor(.sbTextPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(14)
+    }
+
+    private func itemsText(_ items: [PlannedFood]) -> String {
+        items.map { NSLocalizedString($0.name, comment: "") + " \($0.grams) g" }.joined(separator: " · ")
+    }
+
+    /// "1 serving", "1½ servings" — quarters as fractions read more naturally
+    /// than 1.25 on a menu.
+    private func servingsText(_ s: Double) -> String {
+        if s == 1 { return NSLocalizedString("coach.ui.serving", comment: "") }
+        let whole = Int(s)
+        let frac: String
+        switch s - Double(whole) {
+        case 0.25: frac = "¼"
+        case 0.5:  frac = "½"
+        case 0.75: frac = "¾"
+        default:   frac = ""
+        }
+        let number = (whole > 0 ? "\(whole)" : "") + frac
+        return String(format: NSLocalizedString("coach.ui.servings", comment: ""), number)
+    }
+
+    private func legacyMealLine(icon: String, name: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))
@@ -388,63 +710,18 @@ struct AICoachView: View {
 
     // MARK: - Generate (local — no API)
 
-    private func buildAdaptiveContext() -> LocalCoachService.AdaptiveContext {
-        let workouts = WorkoutStore.shared
-        let foodLog  = FoodLogStore.shared
-        let progress = ProgressStore.shared
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: .now)
-        let weekStart = cal.date(byAdding: .day, value: -6, to: today) ?? today
-
-        let last7Workouts = workouts.history.filter {
-            $0.startedAt >= weekStart && $0.finishedAt != nil
-        }.count
-        let totalWorkouts = workouts.history.filter { $0.finishedAt != nil }.count
-
-        let last7Cals = foodLog.dailyCalories(lastDays: 7).filter { $0.calories > 0 }
-        let avgCals = last7Cals.isEmpty ? 0
-            : Int(last7Cals.reduce(0) { $0 + $1.calories } / Double(last7Cals.count))
-
-        let entries = progress.entries(days: 14).sorted { $0.date < $1.date }
-        let weightTrend: Double? = {
-            guard entries.count >= 2 else { return nil }
-            return entries.last!.weightKg - entries.first!.weightKg
-        }()
-
-        return LocalCoachService.AdaptiveContext(
-            pastWorkouts:         totalWorkouts,
-            workoutsLast7Days:    last7Workouts,
-            currentStreak:        workouts.currentStreak,
-            longestStreak:        workouts.longestStreak,
-            avgCaloriesLast7Days: avgCals,
-            calorieTarget:        profile.dailyCalorieTarget,
-            weightTrendKg:        weightTrend,
-            hasLoggedWeight:      !entries.isEmpty)
-    }
-
     private func generate() {
         isGenerating = true
-
-        // Capture adaptive context BEFORE jumping off the main actor.
-        let context = buildAdaptiveContext()
+        // Read the stores now, before the delay, so the plan reflects the
+        // moment the user tapped.
+        let inputs = CoachInputs.current(extraContext: extraContext)
 
         // Brief delay for UX feel
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            let result = LocalCoachService.generatePlan(
-                goal:          profile.goal,
-                activityLevel: profile.activityLevel,
-                weightKg:      profile.weightKg,
-                heightCm:      profile.heightCm,
-                bmi:           profile.bmi,
-                bmiCategory:   profile.bmiCategory,
-                dailyCalories: profile.dailyCalorieTarget,
-                dailyProtein:  profile.dailyProteinTarget,
-                extraContext:  extraContext,
-                history:       context
-            )
             withAnimation(.easeInOut(duration: 0.4)) {
-                plan = result
+                planStore.generate(inputs: inputs)
                 isGenerating = false
+                editing = false
             }
         }
     }
@@ -455,17 +732,18 @@ struct AICoachView: View {
 private struct DayPill: View {
     let day: DayPlan
     var body: some View {
+        let intensity = day.intensity
         VStack(spacing: 6) {
             Text(String(day.day.prefix(3)))
                 .font(SBFont.label(11))
                 .foregroundColor(.sbTextSecondary)
             ZStack {
                 Circle()
-                    .fill(day.isWorkout ? Color.sbAccent : Color.sbSurface)
+                    .fill(day.isActive ? (intensity?.tint ?? .sbAccent) : Color.sbSurface)
                     .frame(width: 38, height: 38)
-                Image(systemName: day.isWorkout ? "dumbbell.fill" : "moon.zzz.fill")
+                Image(systemName: day.symbol ?? (day.isWorkout ? "dumbbell.fill" : "moon.zzz.fill"))
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(day.isWorkout ? .white : .sbTextSecondary)
+                    .foregroundColor(day.isActive ? .white : .sbTextSecondary)
             }
         }
     }
@@ -476,25 +754,31 @@ private struct DayPill: View {
 private struct DayRow: View {
     let day: DayPlan
     var body: some View {
+        let tint = day.isActive ? (day.intensity?.tint ?? .sbAccent) : Color.sbTextSecondary
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(day.isWorkout ? Color.sbAccent.opacity(0.15) : Color.sbSurface)
+                    .fill(day.isActive ? tint.opacity(0.15) : Color.sbSurface)
                     .frame(width: 46, height: 46)
-                Image(systemName: day.isWorkout ? "dumbbell.fill" : "moon.zzz.fill")
+                Image(systemName: day.symbol ?? (day.isWorkout ? "dumbbell.fill" : "moon.zzz.fill"))
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(day.isWorkout ? .sbAccent : .sbTextSecondary)
+                    .foregroundColor(tint)
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(day.day).font(SBFont.heading(15)).foregroundColor(.sbTextPrimary)
                     Spacer()
-                    Text(LocalizedStringKey(day.isWorkout ? CoachL.workout : CoachL.rest))
-                        .font(SBFont.label(10))
-                        .foregroundColor(day.isWorkout ? .sbAccent : .sbTextSecondary)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(day.isWorkout ? Color.sbAccent.opacity(0.12) : Color.sbSurfaceRaised)
-                        .cornerRadius(6)
+                    if let intensity = day.intensity {
+                        IntensityBadge(intensity: intensity)
+                    } else {
+                        // Plans from before intensities: the old workout/rest tag.
+                        Text(LocalizedStringKey(day.isWorkout ? CoachL.workout : CoachL.rest))
+                            .font(SBFont.label(10))
+                            .foregroundColor(day.isWorkout ? .sbAccent : .sbTextSecondary)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(day.isWorkout ? Color.sbAccent.opacity(0.12) : Color.sbSurfaceRaised)
+                            .cornerRadius(6)
+                    }
                 }
                 Text(day.focus).font(SBFont.caption()).foregroundColor(.sbTextSecondary).lineLimit(1)
             }
@@ -523,14 +807,17 @@ struct DayDetailSheet: View {
                         HStack(spacing: 14) {
                             ZStack {
                                 Circle()
-                                    .fill(day.isWorkout ? Color.sbAccent : Color.sbSurface)
+                                    .fill(day.isActive ? (day.intensity?.tint ?? .sbAccent) : Color.sbSurface)
                                     .frame(width: 56, height: 56)
-                                Image(systemName: day.isWorkout ? "dumbbell.fill" : "moon.zzz.fill")
+                                Image(systemName: day.symbol ?? (day.isWorkout ? "dumbbell.fill" : "moon.zzz.fill"))
                                     .font(.system(size: 22, weight: .bold))
-                                    .foregroundColor(day.isWorkout ? .white : .sbTextSecondary)
+                                    .foregroundColor(day.isActive ? .white : .sbTextSecondary)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(day.day).font(SBFont.heading(20)).foregroundColor(.sbTextPrimary)
+                                HStack(spacing: 8) {
+                                    Text(day.day).font(SBFont.heading(20)).foregroundColor(.sbTextPrimary)
+                                    if let intensity = day.intensity { IntensityBadge(intensity: intensity) }
+                                }
                                 Text(day.focus).font(SBFont.body()).foregroundColor(.sbTextSecondary)
                             }
                         }
@@ -553,7 +840,7 @@ struct DayDetailSheet: View {
                                         .frame(width: 28, height: 28)
                                         .background(day.isWorkout ? Color.sbAccent : Color.sbTextSecondary)
                                         .clipShape(Circle())
-                                    Text(ex)
+                                    Text(verbatim: EXLPlanLine(ex))
                                         .font(SBFont.body()).foregroundColor(.sbTextPrimary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     Spacer()
@@ -563,6 +850,13 @@ struct DayDetailSheet: View {
                                 .cornerRadius(12)
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.sbBorder))
                             }
+                        }
+                        // Explain the numbers the plan now carries.
+                        if day.exercises.contains(where: { $0.contains("RPE") }) {
+                            loadNote("gauge.with.dots.needle.67percent", "coach.ui.rpe")
+                        }
+                        if day.exercises.contains(where: { $0.hasSuffix(" kg") }) {
+                            loadNote("chart.line.uptrend.xyaxis", "coach.ui.kgNote")
                         }
                         Spacer(minLength: 40)
                     }
@@ -578,6 +872,94 @@ struct DayDetailSheet: View {
             }
         }
     }
+}
+
+// MARK: - Intensity & meals UI
+
+private extension DayDetailSheet {
+    func loadNote(_ icon: String, _ key: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.sbAccent)
+                .padding(.top, 2)
+            Text(LocalizedStringKey(key))
+                .font(SBFont.caption())
+                .foregroundColor(.sbTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.sbAccentDim)
+        .cornerRadius(12)
+    }
+}
+
+extension DayIntensity {
+    var tint: Color {
+        switch self {
+        case .heavy:  return .sbAccent
+        case .medium: return Color(hex: "#5E9EFF")
+        case .light:  return .sbCyan
+        case .deload: return .orange
+        case .rest:   return .sbTextSecondary
+        case .sport:  return .sbGreen
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .heavy:  return "flame.fill"
+        case .medium: return "dumbbell.fill"
+        case .light:  return "wind"
+        case .deload: return "arrow.down.circle.fill"
+        case .rest:   return "moon.zzz.fill"
+        case .sport:  return "trophy.fill"
+        }
+    }
+}
+
+extension DayPlan {
+    /// Gym or the user's own sport: shown in colour, not as a grey rest day.
+    var isActive: Bool { isWorkout || intensity == .sport }
+    /// The sport's own symbol on practice days (a BJJ class shows a martial
+    /// artist, not a generic trophy).
+    var symbol: String? {
+        if intensity == .sport, let id = sport, let s = SportLibrary.byID(id) { return s.icon }
+        return intensity?.icon
+    }
+}
+
+extension PlannedMeal.MealSlot {
+    var icon: String {
+        switch self {
+        case .breakfast: return "sunrise.fill"
+        case .lunch:     return "sun.max.fill"
+        case .snack:     return "leaf.fill"
+        case .dinner:    return "moon.fill"
+        }
+    }
+}
+
+/// "Heavy" / "Light" / … pill in the day's colour.
+struct IntensityBadge: View {
+    let intensity: DayIntensity
+    var body: some View {
+        Text(LocalizedStringKey(intensity.labelKey))
+            .font(SBFont.label(10))
+            .foregroundColor(intensity.tint)
+            .textCase(.uppercase)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(intensity.tint.opacity(0.14))
+            .cornerRadius(6)
+    }
+}
+
+/// A planned meal opened as its recipe, at the planned portion.
+private struct PlannedRecipe: Identifiable {
+    let recipe: Recipe
+    let servings: Double
+    var id: String { recipe.id }
 }
 
 // MARK: - Localization helper

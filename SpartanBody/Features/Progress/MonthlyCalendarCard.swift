@@ -61,7 +61,9 @@ struct MonthlyCalendarCard: View {
         let f = DateFormatter()
         f.locale = Locale(identifier: LanguageManager.shared.selectedCode)
         f.setLocalizedDateFormatFromTemplate("MMMM yyyy")
-        return f.string(from: displayedMonth).capitalized
+        // Only the first letter: .capitalized gave "Septiembre De 2026".
+        let title = f.string(from: displayedMonth)
+        return title.prefix(1).uppercased() + title.dropFirst()
     }
 
     private var canGoForward: Bool {
@@ -173,9 +175,9 @@ struct MonthlyCalendarCard: View {
         let dayKey = DateFormatter.sbDateKey.string(from: day)
 
         let kcal = foodLog.totalCalories(for: day)
-        let calorieProgress = profile.dailyCalorieTarget > 0
-            ? kcal / Double(profile.dailyCalorieTarget)
-            : 0
+        // Each day's own target: the plan's follow the day's training.
+        let target = Double(PlanStore.shared.targets(on: day, for: profile).kcal)
+        let calorieProgress = target > 0 ? kcal / target : 0
 
         let glasses = UserDefaults.standard.integer(forKey: "sb_water_\(dayKey)")
         let waterProgress = Double(glasses) / 8.0
@@ -201,7 +203,9 @@ struct MonthlyCalendarCard: View {
             Divider().frame(height: 32).background(Color.sbBorder)
             statBox(value: "\(stats.calorieDays)",   label: "Goal days")
             Divider().frame(height: 32).background(Color.sbBorder)
-            statBox(value: "\(stats.bestStreak)",    label: "Best streak")
+            // Days with all three rings closed, not the workout streak shown
+            // at the top of the screen — the old label made the two disagree.
+            statBox(value: "\(stats.bestStreak)",    label: "calendar.perfectStreak")
         }
         .padding(.top, 4)
     }
@@ -241,7 +245,7 @@ struct MonthlyCalendarCard: View {
             let stats = dayStats(day)
             if stats.workoutDone { workoutCount += 1 }
 
-            let target = Double(profile.dailyCalorieTarget)
+            let target = Double(PlanStore.shared.targets(on: day, for: profile).kcal)
             let kcal   = foodLog.totalCalories(for: day)
             let metCalories = target > 0 && kcal >= target * 0.85 && kcal <= target * 1.15
             if metCalories { calorieDays += 1 }

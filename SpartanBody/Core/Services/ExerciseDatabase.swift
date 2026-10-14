@@ -95,13 +95,13 @@ struct ExerciseDatabase {
             setup: "Lie flat on a bench. Grip the bar slightly wider than shoulder-width with palms facing away. Unrack the bar and hold it directly over your chest.",
             steps: [
                 "Lower the bar slowly to your mid-chest, keeping elbows at ~45°.",
-                "Touch your chest lightly — do not bounce.",
+                "Touch your chest lightly. Do not bounce.",
                 "Press the bar back up in a slight arc until arms are fully extended.",
                 "Keep your feet flat, back slightly arched, and shoulder blades retracted."
             ],
             tips: ["Keep wrists straight throughout", "Don't flare elbows past 45°", "Exhale on the push"],
             defaultSets: 4,
-            defaultReps: "8–10"
+            defaultReps: "8-10"
         ),
         Exercise(
             id: "incline_dumbbell_press",
@@ -112,7 +112,7 @@ struct ExerciseDatabase {
             difficulty: .intermediate,
             primaryMuscle: "Upper Pectoralis Major",
             secondaryMuscles: ["Anterior Deltoid", "Triceps"],
-            setup: "Set a bench to 30–45°. Sit with a dumbbell on each thigh, then kick them up as you lean back.",
+            setup: "Set a bench to 30-45°. Sit with a dumbbell on each thigh, then kick them up as you lean back.",
             steps: [
                 "Hold dumbbells at chest level, palms facing forward.",
                 "Press both dumbbells up until arms are extended, meeting at the top.",
@@ -121,7 +121,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Squeeze at the top", "Move both dumbbells symmetrically", "Control the eccentric"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
         Exercise(
             id: "push_up",
@@ -141,7 +141,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't let hips sag", "Keep head neutral", "Full range of motion"],
             defaultSets: 3,
-            defaultReps: "12–15"
+            defaultReps: "12-15"
         ),
         Exercise(
             id: "cable_fly",
@@ -161,7 +161,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Keep a slight bend in elbows throughout", "Don't let weight crash back", "Focus on stretch"],
             defaultSets: 3,
-            defaultReps: "12–15"
+            defaultReps: "12-15"
         ),
     ]
 
@@ -185,7 +185,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't swing or kip", "Cross your feet behind you for stability", "Full dead hang at the bottom"],
             defaultSets: 4,
-            defaultReps: "6–10"
+            defaultReps: "6-10"
         ),
         Exercise(
             id: "barbell_row",
@@ -203,9 +203,9 @@ struct ExerciseDatabase {
                 "Hold the contraction for 1 second.",
                 "Lower the bar under control back to arm extension."
             ],
-            tips: ["Keep back flat — no rounding", "Don't jerk the weight up", "Head neutral"],
+            tips: ["Keep back flat: no rounding", "Don't jerk the weight up", "Head neutral"],
             defaultSets: 4,
-            defaultReps: "8–10"
+            defaultReps: "8-10"
         ),
         Exercise(
             id: "lat_pulldown",
@@ -225,7 +225,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't pull behind the neck", "Control the return", "Keep chest up"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
         Exercise(
             id: "dumbbell_row",
@@ -245,7 +245,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't rotate your torso", "Keep back parallel to floor", "Elbow close to body"],
             defaultSets: 3,
-            defaultReps: "10–12 each"
+            defaultReps: "10-12 each"
         ),
     ]
 
@@ -269,7 +269,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't lean back excessively", "Full lockout at top", "Breathe out on push"],
             defaultSets: 4,
-            defaultReps: "6–8"
+            defaultReps: "6-8"
         ),
         Exercise(
             id: "lateral_raise",
@@ -289,7 +289,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't swing or use momentum", "Lead with elbows, not wrists", "Light weight, strict form"],
             defaultSets: 3,
-            defaultReps: "12–15"
+            defaultReps: "12-15"
         ),
         Exercise(
             id: "pike_push_up",
@@ -300,7 +300,7 @@ struct ExerciseDatabase {
             difficulty: .beginner,
             primaryMuscle: "Anterior Deltoid",
             secondaryMuscles: ["Triceps", "Upper Trapezius"],
-            setup: "Start in a downward dog position — hips high, forming an inverted V with your body.",
+            setup: "Start in a downward dog position. Hips high, forming an inverted V with your body.",
             steps: [
                 "Bend elbows and lower your head toward the floor.",
                 "Keep your hips elevated throughout the movement.",
@@ -309,7 +309,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Wrists directly under shoulders", "Don't drop hips", "Look toward your feet"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
     ]
 
@@ -333,7 +333,7 @@ struct ExerciseDatabase {
             ],
             tips: ["No swinging or momentum", "Control the negative", "Full range of motion"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
         Exercise(
             id: "tricep_dip",
@@ -349,11 +349,11 @@ struct ExerciseDatabase {
                 "Lower your body by bending your elbows behind you.",
                 "Go down until upper arms are parallel to the floor.",
                 "Press back up to straight arms.",
-                "Keep elbows close — don't let them flare wide."
+                "Keep elbows close: don't let them flare wide."
             ],
             tips: ["Lean slightly forward for more tricep focus", "Don't go too deep", "Keep hips close to bench"],
             defaultSets: 3,
-            defaultReps: "12–15"
+            defaultReps: "12-15"
         ),
         Exercise(
             id: "hammer_curl",
@@ -373,7 +373,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Can be done alternating for balance", "Great for forearm development", "Don't let wrists bend"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
         Exercise(
             id: "skull_crusher",
@@ -393,7 +393,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Don't let elbows flare out", "Use a spotter for heavy weight", "Control the descent"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
     ]
 
@@ -408,16 +408,16 @@ struct ExerciseDatabase {
             difficulty: .beginner,
             primaryMuscle: "Rectus Abdominis",
             secondaryMuscles: ["Transverse Abdominis", "Obliques", "Glutes"],
-            setup: "Start in a forearm plank position — elbows under shoulders, body in a straight line from head to heels.",
+            setup: "Start in a forearm plank position. Elbows under shoulders, body in a straight line from head to heels.",
             steps: [
                 "Brace your core tight as if bracing for a punch.",
-                "Squeeze glutes and keep hips level — not raised or dropped.",
+                "Squeeze glutes and keep hips level. Not raised or dropped.",
                 "Hold position, breathing steadily.",
-                "Keep neck neutral — look at the floor."
+                "Keep neck neutral: look at the floor."
             ],
             tips: ["Don't hold your breath", "Progress by adding time", "Squeeze everything"],
             defaultSets: 3,
-            defaultReps: "30–60 sec"
+            defaultReps: "30-60 sec"
         ),
         Exercise(
             id: "crunch",
@@ -431,13 +431,13 @@ struct ExerciseDatabase {
             setup: "Lie on your back with knees bent, feet flat on the floor. Place hands behind your head lightly.",
             steps: [
                 "Engage your core and curl your shoulders off the floor.",
-                "Lift only your upper back — lower back stays down.",
+                "Lift only your upper back. Lower back stays down.",
                 "Squeeze abs at the top.",
-                "Lower back down with control — don't fully relax between reps."
+                "Lower back down with control. Don't fully relax between reps."
             ],
             tips: ["Don't pull your neck", "Exhale on the way up", "Small, controlled movement"],
             defaultSets: 3,
-            defaultReps: "15–20"
+            defaultReps: "15-20"
         ),
         Exercise(
             id: "russian_twist",
@@ -473,11 +473,11 @@ struct ExerciseDatabase {
                 "Brace your core and raise your legs toward your chest.",
                 "Keep legs straight or slightly bent.",
                 "Bring legs until parallel to the floor (or higher).",
-                "Lower slowly — don't let momentum swing your body."
+                "Lower slowly: don't let momentum swing your body."
             ],
             tips: ["Avoid swinging", "Exhale as you raise legs", "Tuck for easier version"],
             defaultSets: 3,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
     ]
 
@@ -501,7 +501,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Brace core before each rep", "Don't let knees cave in", "Keep weight in heels"],
             defaultSets: 4,
-            defaultReps: "6–8"
+            defaultReps: "6-8"
         ),
         Exercise(
             id: "goblet_squat",
@@ -521,7 +521,7 @@ struct ExerciseDatabase {
             ],
             tips: ["Great for beginners learning squat mechanics", "Keep elbows inside knees", "Chest up"],
             defaultSets: 3,
-            defaultReps: "12–15"
+            defaultReps: "12-15"
         ),
         Exercise(
             id: "romanian_deadlift",
@@ -535,13 +535,13 @@ struct ExerciseDatabase {
             setup: "Hold a barbell at hip height with overhand grip, standing with feet hip-width apart.",
             steps: [
                 "Hinge at the hips, pushing them back as you lower the bar.",
-                "Keep the bar close to your legs — nearly dragging down your shins.",
+                "Keep the bar close to your legs. Nearly dragging down your shins.",
                 "Lower until you feel a stretch in your hamstrings.",
                 "Drive hips forward to return to standing."
             ],
-            tips: ["Keep back flat throughout", "Bend knees slightly — this isn't a stiff-leg DL", "Feel the hamstring stretch"],
+            tips: ["Keep back flat throughout", "Bend knees slightly: this isn't a stiff-leg DL", "Feel the hamstring stretch"],
             defaultSets: 3,
-            defaultReps: "8–10"
+            defaultReps: "8-10"
         ),
         Exercise(
             id: "walking_lunge",
@@ -583,9 +583,9 @@ struct ExerciseDatabase {
                 "Squeeze glutes hard at the top.",
                 "Lower hips back toward the floor with control."
             ],
-            tips: ["Chin tucked — don't hyperextend your neck", "Use a barbell pad for comfort", "Drive through heels, not toes"],
+            tips: ["Chin tucked: don't hyperextend your neck", "Use a barbell pad for comfort", "Drive through heels, not toes"],
             defaultSets: 4,
-            defaultReps: "10–12"
+            defaultReps: "10-12"
         ),
         Exercise(
             id: "glute_bridge",
@@ -600,12 +600,12 @@ struct ExerciseDatabase {
             steps: [
                 "Press your feet into the floor and squeeze your glutes.",
                 "Lift your hips until your body forms a straight line.",
-                "Hold at the top for 1–2 seconds.",
+                "Hold at the top for 1-2 seconds.",
                 "Lower back down slowly."
             ],
             tips: ["Keep core braced", "Add resistance band above knees for extra activation", "Don't arch lower back"],
             defaultSets: 3,
-            defaultReps: "15–20"
+            defaultReps: "15-20"
         ),
     ]
 
@@ -624,7 +624,7 @@ struct ExerciseDatabase {
             steps: [
                 "Take a deep breath and brace your core.",
                 "Push the floor away (don't think 'pull'), driving through your heels.",
-                "Keep bar close to your body as you rise — drag it up your shins.",
+                "Keep bar close to your body as you rise. Drag it up your shins.",
                 "Stand fully upright, locking hips forward at the top.",
                 "Hinge back down under control."
             ],
@@ -672,7 +672,7 @@ struct ExerciseDatabase {
                 "Land softly on the balls of your feet.",
                 "Maintain a steady rhythm."
             ],
-            tips: ["Keep jumps low — just enough to clear rope", "Wrists do the rotation, not arms", "Start slow and build speed"],
+            tips: ["Keep jumps low: just enough to clear rope", "Wrists do the rotation, not arms", "Start slow and build speed"],
             defaultSets: 3,
             defaultReps: "2 min"
         ),
@@ -712,7 +712,7 @@ struct ExerciseDatabase {
                 "Land with both feet flat and knees slightly bent.",
                 "Stand tall, then step (not jump) back down."
             ],
-            tips: ["Step down instead of jumping to protect knees", "Land softly — think 'quiet'", "Start with a lower box"],
+            tips: ["Step down instead of jumping to protect knees", "Land softly: think 'quiet'", "Start with a lower box"],
             defaultSets: 3,
             defaultReps: "8"
         ),

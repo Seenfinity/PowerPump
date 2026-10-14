@@ -67,7 +67,7 @@ struct AboutView: View {
                                     .font(SBFont.heading(15))
                                     .foregroundColor(.sbTextPrimary)
                             }
-                            Text("The AI Food Scanner uses Claude (by Anthropic). Food photos are sent through our secure server to Anthropic to estimate nutrition; photos are not stored. Everything else — your logs, workouts, and settings — stays on your device.")
+                            Text("Everything runs on your iPhone. Your coach builds each plan from the data already on your device, and form analysis reads your body position with Apple's on-device Vision framework. No account, no servers, and nothing sent to any AI service.")
                                 .font(SBFont.caption())
                                 .foregroundColor(.sbTextSecondary)
                                 .lineSpacing(4)
@@ -102,7 +102,7 @@ struct AboutView: View {
                 Image(systemName: icon)
                     .foregroundColor(color)
                     .frame(width: 22)
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(SBFont.body())
                     .foregroundColor(.sbTextPrimary)
                 Spacer()
@@ -127,24 +127,30 @@ struct PrivacyPolicyView: View {
                 Color.sbBackground.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text("Last updated: June 2026")
+                        Text("Last updated: September 2026")
                             .font(SBFont.caption())
                             .foregroundColor(.sbTextSecondary)
 
                         policySection("Data We Collect",
                             "PowerPump stores all your fitness data (workouts, nutrition logs, goals, measurements) locally on your device only. We do not operate any backend servers or databases.")
 
-                        policySection("AI Features & Third Parties",
-                            "When you use the AI Food Scanner or AI Coach, images or text are sent securely to Anthropic's API (claude.ai) to generate responses. Anthropic's privacy policy applies to this data. We do not retain or store these images or AI responses on any server we control.")
+                        policySection("Coach & Form Analysis",
+                            "The AI Coach runs entirely on your device: it builds your plan from the profile and history already stored on your iPhone, and makes no network requests. The coach chat uses Apple's on-device language model (Apple Intelligence) when your iPhone supports it; your questions and its answers are processed and stored only on your iPhone. Form analysis uses Apple's on-device Vision framework to read your body position, either live from the camera or from a video you choose from your library. Live analysis is never recorded. A chosen video is copied temporarily for the analysis and deleted when you close the screen; only the score and corrections are saved. Nothing leaves your iPhone.")
 
-                        policySection("Camera & Photos",
-                            "Camera and photo access is used exclusively to analyze food for nutrition estimation and to assess exercise form in real time. Images are processed on-device or via Anthropic's API and are never stored by PowerPump.")
+                        policySection("Camera",
+                            "Camera access is used only to scan product barcodes and to analyze your exercise form live. Barcode scans send the barcode number alone to the public Open Food Facts database to look up nutrition info. Videos for form analysis are chosen with the system picker, so PowerPump only sees the video you pick, never the rest of your library. Form analysis is processed entirely on your device. PowerPump never uploads your photos or video.")
+
+                        policySection("Location & Routes",
+                            "With your permission, PowerPump uses your location to trace your route and measure distance and pace during runs, walks, and outdoor sports. Routes are stored on your device only. When you generate a route, start and destination coordinates are sent to Apple Maps to calculate walking directions, handled under Apple's privacy policy. We never receive, store, or share your location.")
 
                         policySection("Notifications",
                             "If you enable notifications, reminders are scheduled locally on your device using iOS's notification system. No notification data is transmitted to any server.")
 
+                        policySection("Apple Health",
+                            "With your permission, PowerPump reads steps, active energy, heart rate, resting heart rate, heart rate variability, body mass, and sleep from Apple Health, and writes your workouts, nutrition, water, and body mass back to it. Health data is used only to show your stats and your weekly coach review inside the app. It is never sent off your device, never shared, and never used for advertising.")
+
                         policySection("Analytics & Tracking",
-                            "PowerPump does not use any third-party analytics, advertising SDKs, or tracking tools. We do not track you across apps or websites.")
+                            "PowerPump does not use any third-party analytics, advertising SDKs, or tracking tools. We do not track you across apps or websites, and we do not use any third-party AI or language-model services.")
 
                         policySection("Data Deletion",
                             "All your data lives on your device. You can delete it at any time by deleting the PowerPump app.")
@@ -168,7 +174,9 @@ struct PrivacyPolicyView: View {
         }
     }
 
-    private func policySection(_ title: String, _ body: String) -> some View {
+    // LocalizedStringKey, not String: Text(String) shows the English text
+    // as is, so the policy stayed in English whatever the phone's language.
+    private func policySection(_ title: LocalizedStringKey, _ body: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(SBFont.heading(15))

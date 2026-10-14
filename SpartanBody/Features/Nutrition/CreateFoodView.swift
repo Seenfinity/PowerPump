@@ -27,7 +27,7 @@ struct CreateFoodView: View {
                             .foregroundColor(.sbTextSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        field("Name", text: $name, placeholder: "Protein bar XYZ", keyboard: .default)
+                        field("Name", text: $name, placeholder: NSLocalizedString("Protein bar XYZ", comment: ""), keyboard: .default)
                         field("Calories (kcal)", text: $calories, placeholder: "350")
                         field("Protein (g)", text: $protein, placeholder: "20")
                         field("Carbs (g)", text: $carbs, placeholder: "40")

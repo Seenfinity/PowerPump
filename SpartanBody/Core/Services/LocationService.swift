@@ -66,13 +66,15 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let loc = locations.last else { return }
+        // In the background iOS delivers fixes in batches; every one of them
+        // is part of the route, not just the last.
         // Ignore wildly inaccurate fixes (e.g. cold-start estimates) so the
         // route doesn't zig-zag across the city.
-        guard loc.horizontalAccuracy > 0, loc.horizontalAccuracy < 35 else { return }
+        let good = locations.filter { $0.horizontalAccuracy > 0 && $0.horizontalAccuracy < 35 }
+        guard !good.isEmpty else { return }
         DispatchQueue.main.async {
-            self.lastLocation = loc
-            self.locationPublisher.send(loc)
+            for loc in good { self.locationPublisher.send(loc) }
+            self.lastLocation = good.last
         }
     }
 

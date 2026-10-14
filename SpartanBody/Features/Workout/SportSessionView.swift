@@ -260,6 +260,8 @@ struct SportSessionView: View {
     private func resume() {
         if let p = pauseStartedAt {
             pausedAccum += Date().timeIntervalSince(p)
+            // Moving around during the pause isn't part of the session.
+            lastLocation = nil
         }
         pauseStartedAt = nil
         isPaused = false
@@ -326,8 +328,11 @@ struct SportSessionView: View {
         let coord = new.coordinate
         if let prev = lastLocation {
             let delta = new.distance(from: prev)
-            // Same anti-jitter rule as RunStore.
-            if delta > 3 && delta < 200 {
+            let seconds = max(new.timestamp.timeIntervalSince(prev.timestamp), 1)
+            // A glitch is a jump faster than any sport here (downhill skiing
+            // tops out around 30 m/s); a fixed 200 m cut-off also dropped
+            // real distance after a gap in the signal.
+            if delta > 3 && delta / seconds < 30 {
                 distance += delta
                 route.append(coord)
             }

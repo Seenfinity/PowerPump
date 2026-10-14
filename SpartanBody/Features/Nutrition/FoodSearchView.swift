@@ -18,7 +18,16 @@ struct FoodSearchView: View {
     private var results: [FoodItem] {
         var list = customFoods.foods + FoodDatabase.all
         if let cat = category { list = list.filter { $0.category == cat } }
-        if !query.isEmpty { list = list.filter { $0.name.localizedCaseInsensitiveContains(query) } }
+        if !query.isEmpty {
+            // Match both the English source name and its localized translation
+            // so search works in the user's language (e.g. "Aguacate" → Avocado).
+            // Diacritic-insensitive so "atun" also finds "Atún".
+            let opts: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+            list = list.filter {
+                $0.name.range(of: query, options: opts) != nil
+                || NSLocalizedString($0.name, comment: "").range(of: query, options: opts) != nil
+            }
+        }
         return list
     }
 
@@ -185,7 +194,7 @@ struct FoodSearchView: View {
                     Text(LocalizedStringKey(item.name))
                         .font(SBFont.body())
                         .foregroundColor(.sbTextPrimary)
-                    Text(String(format: "%.0f kcal · P%.0fg C%.0fg F%.0fg (per 100g)",
+                    Text(String(format: NSLocalizedString("food.per100 %.0f %.0f %.0f %.0f", comment: ""),
                                 item.per100g.calories, item.per100g.protein,
                                 item.per100g.carbs, item.per100g.fat))
                         .font(SBFont.label(10))
@@ -230,7 +239,9 @@ struct FoodSearchView: View {
                         .font(SBFont.body())
                         .fontWeight(.semibold)
                         .foregroundColor(.sbTextPrimary)
-                    Text("\(savedMeal.items.count) foods · \(Int(savedMeal.totalCalories)) kcal")
+                    Text(verbatim: savedMeal.items.count == 1
+                         ? String(format: NSLocalizedString("saved.oneFood %lld", comment: ""), Int(savedMeal.totalCalories))
+                         : String(format: NSLocalizedString("%lld foods · %lld kcal", comment: ""), savedMeal.items.count, Int(savedMeal.totalCalories)))
                         .font(SBFont.label(10))
                         .foregroundColor(.sbTextSecondary)
                 }
@@ -350,7 +361,7 @@ struct FoodSearchView: View {
 
                 // Nutrition preview
                 VStack(spacing: 12) {
-                    Text("Nutrition for \(Int(grams))g")
+                    Text(verbatim: String(format: NSLocalizedString("Nutrition for %lldg", comment: ""), Int(grams)))
                         .font(SBFont.caption())
                         .foregroundColor(.sbTextSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -419,7 +430,7 @@ struct FoodSearchView: View {
                     .font(SBFont.label())
                     .foregroundColor(.sbTextSecondary)
             }
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(SBFont.label(10))
                 .foregroundColor(.sbTextSecondary)
         }

@@ -21,6 +21,9 @@ struct WorkoutSession: Identifiable, Codable {
     var startedAt: Date = .now
     var finishedAt: Date?
     var exercises: [SessionExercise]
+    /// How hard the session felt, 1–10, asked by Spartan after it. nil when
+    /// not answered (and for sessions saved before it existed).
+    var rpe: Int? = nil
 
     var duration: TimeInterval { (finishedAt ?? .now).timeIntervalSince(startedAt) }
     var completedSets: Int { exercises.flatMap(\.sets).filter(\.completed).count }

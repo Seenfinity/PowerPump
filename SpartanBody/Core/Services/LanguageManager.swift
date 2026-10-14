@@ -27,7 +27,7 @@ final class LanguageManager: ObservableObject {
         Self.available.first { $0.id == selectedCode } ?? Self.available[0]
     }
 
-    // Plain English name used in Claude API prompts
+    // Plain English language name, for the food scanner coming in 1.1 (Deferred/FoodScannerAI).
     var languageNameForAI: String {
         switch selectedCode {
         case "es":    return "Spanish"
@@ -103,6 +103,18 @@ extension Bundle {
             return
         }
         objc_setAssociatedObject(Bundle.main, &sbBundleKey, bundle, .OBJC_ASSOCIATION_RETAIN)
+    }
+}
+
+extension Bundle {
+    /// The string catalog's translation for `key` in the selected language,
+    /// without the ProgramStrings fallback below — ProgramStrings itself
+    /// calls this, and going through NSLocalizedString would loop forever.
+    static func catalogString(_ key: String) -> String {
+        if let override = objc_getAssociatedObject(Bundle.main, &sbBundleKey) as? Bundle {
+            return override.localizedString(forKey: key, value: nil, table: nil)
+        }
+        return key
     }
 }
 

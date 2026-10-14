@@ -3,7 +3,7 @@ import SwiftUI
 struct OnboardingView: View {
     @ObservedObject private var profile = UserProfile.shared
     @State private var step = 0
-    private let totalSteps = 7
+    private let totalSteps = 8
 
     var body: some View {
         ZStack {
@@ -24,6 +24,7 @@ struct OnboardingView: View {
                     case 3: TargetWeightStep()
                     case 4: PredictionStep()
                     case 5: ActivityStep()
+                    case 6: SportStep()
                     default: SummaryStep(onDone: finishOnboarding)
                     }
                 }
@@ -62,7 +63,7 @@ struct OnboardingView: View {
 
     private var navigationButtons: some View {
         VStack(spacing: 12) {
-            SBPrimaryButton(title: step == 5 ? "See My Plan" : "Continue") {
+            SBPrimaryButton(title: step == 6 ? "See My Plan" : "Continue") {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { step += 1 }
                 HapticManager.light()
             }
@@ -80,6 +81,15 @@ struct OnboardingView: View {
 
     private func finishOnboarding() {
         HapticManager.heavy()
+        // Build the plan straight away so the answers the user just gave turn
+        // into something concrete: by the time they finish the tutorial their
+        // week of workouts and meals is already waiting.
+        //
+        // Re-arm the reveal every time, not just on first install: coming back
+        // through "Edit Profile" means the goal, weight or sport changed, so the
+        // user should see the plan those new answers produced.
+        PlanStore.shared.generate(inputs: .current())
+        PlanStore.shared.hasSeenFirstPlan = false
         withAnimation(.spring(response: 0.5)) {
             profile.onboardingDone = true
         }
@@ -333,10 +343,20 @@ private struct TargetWeightStep: View {
             .padding(.bottom, 8)
         }
         .onAppear {
-            // First time we land here, default the target to the user's current
-            // weight so the cursor starts in a sensible place.
-            if profile.targetWeightKg == 75 && profile.weightKg != 75 {
-                profile.targetWeightKg = profile.weightKg
+            // Seed a sensible target based on the chosen goal, but only when the
+            // user hasn't set one distinct from their current weight yet
+            // (delta ≈ 0). This makes "Lose Weight" / "Gain Muscle" show a real
+            // prediction and chart instead of defaulting to "maintain". The user
+            // can still slide the ruler to any value afterwards.
+            if abs(profile.targetWeightKg - profile.weightKg) < 0.5 {
+                switch profile.goal {
+                case .loseWeight:
+                    profile.targetWeightKg = max(range.lowerBound, (profile.weightKg * 0.92).rounded())
+                case .gainMuscle:
+                    profile.targetWeightKg = min(range.upperBound, (profile.weightKg * 1.05).rounded())
+                case .stayFit:
+                    profile.targetWeightKg = profile.weightKg
+                }
             }
         }
     }
@@ -397,22 +417,23 @@ private struct PredictionStep: View {
     private var isLoss:  Bool   { deltaKg < 0 }
     private var isMaintenance: Bool { abs(deltaKg) < 0.5 }
 
-    // Weekly rate, adaptive to BMI (people with more excess weight lose faster
-    // — early water loss, more total body to mobilize from). Within a safe
-    // range of 0.5–1.5 kg/week for loss, 0.35 kg/week for lean gain.
+    // Weekly rate, adaptive to BMI (people with more excess weight lose
+    // faster). The plan itself works from a ~500 kcal deficit, about 0.5 kg
+    // a week, and the coach flags anything over 1% of body weight; the old
+    // 0.85–1.2% here promised dates the plan couldn't deliver.
     private var weeklyChangeKg: Double {
         if isMaintenance { return 0 }
         if isLoss {
             let rate: Double
             switch profile.bmi {
-            case 30...:    rate = 0.012   // Obese: ~1.2% per week
-            case 25..<30:  rate = 0.010   // Overweight: ~1% per week
-            case 18.5..<25: rate = 0.0085 // Normal: ~0.85% per week
-            default:       rate = 0.006   // Underweight: ~0.6% per week
+            case 30...:    rate = 0.0085  // Obese
+            case 25..<30:  rate = 0.0070  // Overweight
+            case 18.5..<25: rate = 0.0055 // Normal
+            default:       rate = 0.0040  // Underweight
             }
-            return min(1.5, max(0.5, profile.weightKg * rate))
+            return min(1.0, max(0.3, profile.weightKg * rate))
         }
-        return 0.35  // Lean bulking, sustainable pace
+        return 0.25  // Lean bulking, sustainable pace
     }
 
     private var weeksToTarget: Int {
@@ -894,6 +915,7 @@ private struct StepperRow: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.sbTextPrimary)
                         .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
                 }
 
                 Divider().frame(height: 20)
@@ -908,6 +930,7 @@ private struct StepperRow: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.sbTextPrimary)
                         .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
                 }
             }
             .background(Color.sbSurfaceRaised)
@@ -1007,6 +1030,139 @@ private struct ActivityCard: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(isSelected ? Color.sbAccent : Color.sbBorder, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Step 6: Sport
+
+// "Do you practice a sport?" — the answer tunes the weekly plan (recovery,
+// support work) and the calorie/protein targets in UserProfile.
+private struct SportStep: View {
+    @ObservedObject private var profile = UserProfile.shared
+
+    // Curated, most common picks first; the full catalog stays available
+    // in the Sports tab. BJJ leads because grapplers are a core audience.
+    private let choices: [SportActivity] = {
+        let ids = ["bjj", "boxing", "martial_arts", "soccer", "basketball",
+                   "tennis", "padel", "cycling", "swimming", "climbing",
+                   "volleyball", "yoga", "dance", "hiit", "rowing", "hiking"]
+        return ids.compactMap { SportLibrary.byID($0) }
+    }()
+
+    private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+
+    var body: some View {
+        VStack(spacing: 22) {
+            VStack(spacing: 8) {
+                Text("onboarding.sport.title")
+                    .font(SBFont.display(28))
+                    .foregroundColor(.sbTextPrimary)
+                    .multilineTextAlignment(.center)
+                Text("onboarding.sport.subtitle")
+                    .font(SBFont.body())
+                    .foregroundColor(.sbTextSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // "Gym only" card — clears all sports
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    profile.practicedSportIDs = []
+                    profile.sportDaysPerWeek = 0
+                    profile.sportWeekdays = []
+                }
+                HapticManager.selection()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "dumbbell.fill")
+                        .foregroundColor(profile.practicedSportIDs.isEmpty ? .white : .sbTextSecondary)
+                        .frame(width: 40, height: 40)
+                        .background(profile.practicedSportIDs.isEmpty ? Color.sbAccent : Color.sbSurfaceRaised)
+                        .cornerRadius(10)
+                    Text("onboarding.sport.none")
+                        .font(SBFont.heading(15))
+                        .foregroundColor(profile.practicedSportIDs.isEmpty ? .sbAccent : .sbTextPrimary)
+                    Spacer()
+                    Image(systemName: profile.practicedSportIDs.isEmpty ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(profile.practicedSportIDs.isEmpty ? .sbAccent : .sbBorder)
+                }
+                .padding(12)
+                .background(profile.practicedSportIDs.isEmpty ? Color.sbAccentDim : Color.sbSurface)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14)
+                    .stroke(profile.practicedSportIDs.isEmpty ? Color.sbAccent : Color.sbBorder, lineWidth: 1.5))
+            }
+            .buttonStyle(.plain)
+
+            Text("onboarding.sport.multi")
+                .font(SBFont.label(11))
+                .foregroundColor(.sbTextSecondary)
+
+            // Sport grid — tap to toggle (multiple allowed)
+            ScrollView(showsIndicators: false) {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    ForEach(choices) { sport in
+                        let selected = profile.practicedSportIDs.contains(sport.id)
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if selected {
+                                    profile.practicedSportIDs.removeAll { $0 == sport.id }
+                                    if profile.practicedSportIDs.isEmpty {
+                                        profile.sportDaysPerWeek = 0
+                                        profile.sportWeekdays = []
+                                    }
+                                } else {
+                                    profile.practicedSportIDs.append(sport.id)
+                                    if profile.sportDaysPerWeek == 0 { profile.sportDaysPerWeek = 3 }
+                                }
+                            }
+                            HapticManager.selection()
+                        } label: {
+                            VStack(spacing: 6) {
+                                // Fixed icon box: SF Symbols have different
+                                // heights, which made the tiles uneven.
+                                Image(systemName: sport.icon)
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundColor(selected ? .white : .sbAccent)
+                                    .frame(height: 28)
+                                Text(verbatim: PT(sport.nameKey))
+                                    .font(SBFont.label(11))
+                                    .foregroundColor(selected ? .white : .sbTextPrimary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(selected ? Color.sbAccent : Color.sbSurface)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12)
+                                .stroke(selected ? Color.sbAccent : Color.sbBorder, lineWidth: 1.2))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            .frame(maxHeight: 240)
+
+            // Which days (only when at least one sport is picked). Asking
+            // for the days, not just a count, lets the coach plan around them.
+            if !profile.practicedSportIDs.isEmpty {
+                VStack(spacing: 10) {
+                    Text("onboarding.sport.whichDays")
+                        .font(SBFont.heading(14))
+                        .foregroundColor(.sbTextPrimary)
+                    SportWeekdayPicker(weekdays: $profile.sportWeekdays)
+                    Text(verbatim: profile.sportWeekdays.isEmpty
+                         ? NSLocalizedString("onboarding.sport.daysHint", comment: "")
+                         : String.localizedStringWithFormat(NSLocalizedString("%lld days", comment: ""), profile.sportWeekdays.count))
+                        .font(SBFont.label(11))
+                        .foregroundColor(profile.sportWeekdays.isEmpty ? .orange : .sbTextSecondary)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .padding(.horizontal, 24)
     }
 }
 

@@ -24,8 +24,8 @@ struct ProgressView: View {
                         weightSection
                         workoutsCard
                         nutritionHistoryCard
-                        achievementsCard
-                        Spacer(minLength: 32)
+                        // The tab bar floats over the scroll view.
+                        Spacer(minLength: 110)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -113,7 +113,7 @@ struct ProgressView: View {
                         Image(systemName: "trophy.fill")
                             .font(.system(size: 11))
                             .foregroundColor(Color(hex: "#FFD700"))
-                        Text(String(format: NSLocalizedString("Best: %lld days", comment: ""),
+                        Text(String.localizedStringWithFormat(NSLocalizedString("Best: %lld days", comment: ""),
                                     workoutStore.longestStreak))
                             .font(SBFont.label(11))
                             .foregroundColor(.sbTextSecondary)
@@ -121,45 +121,6 @@ struct ProgressView: View {
                 }
 
                 Spacer()
-            }
-        }
-    }
-
-    // MARK: - Achievements Card
-
-    private var achievementsCard: some View {
-        let unlocked = workoutStore.unlockedAchievements(
-            foodLogHasEntries: !foodLog.todayEntries.isEmpty,
-            weightLogged: !progressStore.weightEntries.isEmpty
-        )
-        let locked = Achievement.allCases.filter { !unlocked.contains($0) }
-
-        return SBCard {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("Achievements")
-                        .font(SBFont.heading())
-                        .foregroundColor(.sbTextPrimary)
-                    Spacer()
-                    Text("\(unlocked.count)/\(Achievement.allCases.count)")
-                        .font(SBFont.caption())
-                        .foregroundColor(.sbTextSecondary)
-                }
-
-                if unlocked.isEmpty && locked.isEmpty {
-                    Text("Complete workouts and log food to earn badges.")
-                        .font(SBFont.caption())
-                        .foregroundColor(.sbTextSecondary)
-                } else {
-                    // Unlocked first
-                    let all = unlocked + locked
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(all) { achievement in
-                            let isUnlocked = unlocked.contains(achievement)
-                            AchievementBadge(achievement: achievement, unlocked: isUnlocked)
-                        }
-                    }
-                }
             }
         }
     }
@@ -263,7 +224,12 @@ struct ProgressView: View {
 
     private var nutritionHistoryCard: some View {
         let dailyData = foodLog.dailyCalories(lastDays: 7)
-        let target = Double(profile.dailyCalorieTarget)
+        // Each day against its own target (the plan's follow the training);
+        // the header and the line show the week's average.
+        let dayTargets = Dictionary(uniqueKeysWithValues: dailyData.map {
+            ($0.date, Double(PlanStore.shared.targets(on: $0.date, for: profile).kcal))
+        })
+        let target = dayTargets.values.reduce(0, +) / Double(max(dayTargets.count, 1))
         let logged = dailyData.filter { $0.calories > 0 }
         let avg = logged.isEmpty ? 0.0 : logged.map(\.calories).reduce(0, +) / Double(logged.count)
 
@@ -280,7 +246,7 @@ struct ProgressView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text("\(profile.dailyCalorieTarget)")
+                        Text(verbatim: "\(Int(target.rounded()))")
                             .font(SBFont.heading(22))
                             .foregroundColor(.sbAccent)
                         Text("kcal goal")
@@ -296,7 +262,8 @@ struct ProgressView: View {
                             y: .value("Calories", item.calories)
                         )
                         .foregroundStyle(
-                            (item.calories > 0 && item.calories > target
+                            // A few percent over isn't a red day.
+                            (item.calories > (dayTargets[item.date] ?? target) * 1.05
                                 ? Color.sbRed : Color.sbGreen).gradient
                         )
                         .cornerRadius(4)
@@ -304,7 +271,8 @@ struct ProgressView: View {
                     RuleMark(y: .value("Goal", target))
                         .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
                         .foregroundStyle(Color.sbAccent)
-                        .annotation(position: .topLeading, spacing: 2) {
+                        // Inside the plot: .topLeading hung off its left edge ("eta").
+                        .annotation(position: .top, alignment: .leading, spacing: 2) {
                             Text("Goal")
                                 .font(SBFont.label(9))
                                 .foregroundColor(.sbAccent)
@@ -378,7 +346,9 @@ private struct SummaryPill: View {
                 .foregroundColor(.sbTextPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(label)
+            // Plain String, so it needs an explicit key — these three pills
+            // were showing "Workouts / Avg/day / Weight" in every language.
+            Text(LocalizedStringKey(label))
                 .font(SBFont.label(10))
                 .foregroundColor(.sbTextSecondary)
         }
@@ -392,7 +362,7 @@ private struct SummaryPill: View {
 
 // MARK: - Achievement Badge
 
-private struct AchievementBadge: View {
+struct AchievementBadge: View {
     let achievement: Achievement
     let unlocked: Bool
 
@@ -408,12 +378,14 @@ private struct AchievementBadge: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(achievement.title)
+                // Both come back as plain Strings, so they need an explicit
+                // key — without it every badge stayed in English.
+                Text(LocalizedStringKey(achievement.title))
                     .font(SBFont.caption())
                     .fontWeight(.semibold)
                     .foregroundColor(unlocked ? .sbTextPrimary : .sbTextSecondary)
                     .lineLimit(1)
-                Text(achievement.description)
+                Text(LocalizedStringKey(achievement.description))
                     .font(SBFont.label(10))
                     .foregroundColor(.sbTextSecondary)
                     .lineLimit(2)

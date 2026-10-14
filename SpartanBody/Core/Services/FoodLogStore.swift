@@ -56,6 +56,12 @@ final class FoodLogStore: ObservableObject {
         entries(for: meal).reduce(0) { $0 + $1.nutrition.calories }
     }
 
+    /// Whether anything was ever logged before `date`.
+    func hasEntries(before date: Date) -> Bool {
+        let key = dateKey(for: date)
+        return allLogs.contains { $0.key < key && !$0.value.isEmpty }
+    }
+
     // Historical queries (for Progress charts)
     func totalCalories(for date: Date) -> Double {
         (allLogs[dateKey(for: date)] ?? []).reduce(0) { $0 + $1.nutrition.calories }
@@ -76,6 +82,17 @@ final class FoodLogStore: ObservableObject {
         let protein: Double
         let carbs: Double
         let fat: Double
+    }
+
+    /// Totals for any past day — the coach history rebuilds old weeks with it.
+    func macros(for date: Date) -> DailyMacros {
+        let entries = allLogs[dateKey(for: date)] ?? []
+        return DailyMacros(
+            date:     Calendar.current.startOfDay(for: date),
+            calories: entries.reduce(0) { $0 + $1.nutrition.calories },
+            protein:  entries.reduce(0) { $0 + $1.nutrition.protein },
+            carbs:    entries.reduce(0) { $0 + $1.nutrition.carbs },
+            fat:      entries.reduce(0) { $0 + $1.nutrition.fat })
     }
 
     func weeklyMacros() -> [DailyMacros] {

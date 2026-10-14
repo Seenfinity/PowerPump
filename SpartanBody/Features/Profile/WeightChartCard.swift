@@ -16,25 +16,50 @@ struct WeightChartCard: View {
 
     private var entries: [WeightEntry] { progress.entries(days: range.days) }
 
+    /// The target line is only worth drawing when it's near enough not to
+    /// flatten the weight line into the top or bottom of the chart.
+    private var showsTarget: Bool {
+        abs(profile.targetWeightKg - (entries.last?.weightKg ?? profile.weightKg)) <= 6
+    }
+
     private var minY: Double {
-        let v = entries.map(\.weightKg).min() ?? profile.weightKg
+        var v = entries.map(\.weightKg).min() ?? profile.weightKg
+        if showsTarget { v = min(v, profile.targetWeightKg) }
         return floor(v - 1)
     }
 
     private var maxY: Double {
-        let v = entries.map(\.weightKg).max() ?? profile.weightKg
+        var v = entries.map(\.weightKg).max() ?? profile.weightKg
+        if showsTarget { v = max(v, profile.targetWeightKg) }
         return ceil(v + 1)
     }
 
-    // Average daily calorie balance over the last 7 days → projected weekly
-    // change in kg (1 kg ≈ 7700 kcal). Positive means losing.
-    private var weeklyProjectionKg: Double {
-        let days = foodLog.dailyCalories(lastDays: 7)
-        let avgIntake = days.map(\.calories).reduce(0, +) / Double(max(days.count, 1))
-        guard avgIntake > 0 else { return 0 }
-        let tdee = Double(profile.dailyCalorieTarget) - Double(profile.goal.dailyCalorieAdjustment)
-        let dailyDeficit = tdee - avgIntake
-        return dailyDeficit * 7 / 7700.0
+    /// Projected weekly change in kg; positive means losing. nil when there
+    /// isn't enough data to say anything honest.
+    ///
+    /// The measured trend of the weigh-ins comes first. Otherwise the
+    /// calorie balance, averaged over the days actually logged — averaging
+    /// over all seven counted unlogged days as zero, so one logged day
+    /// "projected" a loss of 2 kg a week.
+    private var weeklyProjectionKg: Double? {
+        let recent = progress.entries(days: 28).sorted { $0.date < $1.date }
+        if recent.count >= 3, let first = recent.first, let last = recent.last,
+           last.date.timeIntervalSince(first.date) >= 7 * 86_400 {
+            // Least-squares slope, kg per day.
+            let t0 = first.date
+            let xs = recent.map { $0.date.timeIntervalSince(t0) / 86_400 }
+            let ys = recent.map(\.weightKg)
+            let mx = xs.reduce(0, +) / Double(xs.count), my = ys.reduce(0, +) / Double(ys.count)
+            let num = zip(xs, ys).reduce(0) { $0 + ($1.0 - mx) * ($1.1 - my) }
+            let den = xs.reduce(0) { $0 + ($1 - mx) * ($1 - mx) }
+            guard den > 0 else { return nil }
+            return -(num / den) * 7
+        }
+        let logged = foodLog.dailyCalories(lastDays: 7).map(\.calories).filter { $0 > 0 }
+        guard logged.count >= 3 else { return nil }
+        let avgIntake = logged.reduce(0, +) / Double(logged.count)
+        let tdee = Double(profile.rawCalorieTarget) - Double(profile.goal.dailyCalorieAdjustment)
+        return (tdee - avgIntake) * 7 / 7700.0
     }
 
     var body: some View {
@@ -45,7 +70,7 @@ struct WeightChartCard: View {
                     emptyState
                 } else {
                     chart
-                    projectionRow
+                    if let pace = weeklyProjectionKg { projectionRow(pace) }
                 }
             }
         }
@@ -63,7 +88,7 @@ struct WeightChartCard: View {
                         .font(SBFont.body())
                         .foregroundColor(.sbTextSecondary)
                 }
-                if let delta = progress.weightChange {
+                if let delta = progress.weightChange, abs(delta) >= 0.05 {
                     Text(delta >= 0
                          ? String(format: "+%.1f kg", delta)
                          : String(format: "%.1f kg", delta))
@@ -83,7 +108,7 @@ struct WeightChartCard: View {
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) { range = r }
                 } label: {
-                    Text(r.rawValue)
+                    Text(LocalizedStringKey(r.rawValue))
                         .font(SBFont.label(11))
                         .foregroundColor(range == r ? .white : .sbTextSecondary)
                         .padding(.horizontal, 10)
@@ -102,6 +127,7 @@ struct WeightChartCard: View {
     private var chart: some View {
         Chart {
             // Target weight reference line
+            if showsTarget {
             RuleMark(y: .value("Target", profile.targetWeightKg))
                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                 .foregroundStyle(Color.sbAccent.opacity(0.5))
@@ -110,6 +136,7 @@ struct WeightChartCard: View {
                         .font(SBFont.label(9))
                         .foregroundColor(.sbAccent)
                 }
+            }
 
             ForEach(entries) { entry in
                 LineMark(
@@ -120,9 +147,12 @@ struct WeightChartCard: View {
                 .foregroundStyle(Color.sbAccent)
                 .lineStyle(StrokeStyle(lineWidth: 2.5))
 
+                // From the bottom of the visible scale, not from zero: the
+                // default baseline drew the fill down over the axis labels.
                 AreaMark(
                     x: .value("Date", entry.date),
-                    y: .value("Weight", entry.weightKg)
+                    yStart: .value("Base", minY),
+                    yEnd: .value("Weight", entry.weightKg)
                 )
                 .interpolationMethod(.catmullRom)
                 .foregroundStyle(
@@ -136,6 +166,7 @@ struct WeightChartCard: View {
         }
         .frame(height: 160)
         .chartYScale(domain: minY...maxY)
+        .chartPlotStyle { $0.clipped() }
         .chartYAxis {
             AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { val in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.4))
@@ -176,16 +207,16 @@ struct WeightChartCard: View {
         .padding(.vertical, 30)
     }
 
-    private var projectionRow: some View {
+    private func projectionRow(_ pace: Double) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: weeklyProjectionKg >= 0 ? "arrow.down.right" : "arrow.up.right")
+            Image(systemName: pace >= 0 ? "arrow.down.right" : "arrow.up.right")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(weeklyProjectionKg >= 0 ? .sbGreen : .sbRed)
+                .foregroundColor(pace >= 0 ? .sbGreen : .sbRed)
             Text("At current pace")
                 .font(SBFont.label(11))
                 .foregroundColor(.sbTextSecondary)
             Spacer()
-            Text(projectionLabel)
+            Text(projectionLabel(pace))
                 .font(SBFont.label(11))
                 .fontWeight(.semibold)
                 .foregroundColor(.sbTextPrimary)
@@ -195,10 +226,11 @@ struct WeightChartCard: View {
         .cornerRadius(10)
     }
 
-    private var projectionLabel: String {
-        let kg = abs(weeklyProjectionKg)
-        if kg < 0.05 { return "Maintaining weight" }
-        let sign = weeklyProjectionKg < 0 ? "+" : "-"
-        return "\(sign)\(String(format: "%.2f", kg)) kg / week"
+    private func projectionLabel(_ pace: Double) -> String {
+        let kg = abs(pace)
+        if kg < 0.05 { return NSLocalizedString("Maintaining weight", comment: "") }
+        let sign = pace < 0 ? "+" : "-"
+        return String(format: NSLocalizedString("weight.pace %@", comment: ""),
+                      sign + String(format: "%.2f", locale: .current, kg))
     }
 }

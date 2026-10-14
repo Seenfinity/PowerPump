@@ -21,24 +21,54 @@ final class WorkoutStore: ObservableObject {
     }
 
     func start(template: WorkoutTemplate) {
+        // Each exercise starts at the weight the progression engine derived from
+        // what the user actually lifted last time, falling back to the
+        // template's number only when there's no history yet.
         let exercises = template.exercises.map { te -> SessionExercise in
+            let targetReps = Int(te.targetReps) ?? 10
+            let plan = ProgressionEngine.suggestion(for: te.exerciseID,
+                                                    history: history,
+                                                    targetReps: targetReps,
+                                                    fallbackWeight: te.targetWeight)
             let sets = (1...max(1, te.sets)).map { i in
-                SessionSet(setNumber: i,
-                           weight: te.targetWeight,
-                           reps: Int(te.targetReps) ?? 10)
+                SessionSet(setNumber: i, weight: plan.weight, reps: plan.reps)
             }
             return SessionExercise(exerciseID: te.exerciseID, sets: sets)
         }
         activeSession = WorkoutSession(name: template.name, exercises: exercises)
     }
 
+    /// The progression decision for one exercise, for the UI to explain why a
+    /// weight went up, held, or dropped.
+    func progression(for exerciseID: String, targetReps: Int,
+                     fallbackWeight: Double = 0) -> ProgressionEngine.Suggestion {
+        ProgressionEngine.suggestion(for: exerciseID, history: history,
+                                     targetReps: targetReps,
+                                     fallbackWeight: fallbackWeight)
+    }
+
     func finish() {
         guard var session = activeSession else { return }
         session.finishedAt = .now
+        // Opened by mistake and closed straight away: not a workout. Saving
+        // it counted toward the streak, the challenges and the coach's
+        // weekly adherence.
+        if session.completedSets == 0, session.duration < 180 {
+            activeSession = nil
+            return
+        }
         history.insert(session, at: 0)
         activeSession = nil
         save()
         HealthKitService.shared.saveWorkout(session)
+        NotificationCenter.default.post(name: .sbWorkoutFinished, object: session.id)
+    }
+
+    /// How hard a finished session felt (1–10), told to Spartan afterwards.
+    func setRPE(_ rpe: Int, for sessionID: UUID) {
+        guard let i = history.firstIndex(where: { $0.id == sessionID }) else { return }
+        history[i].rpe = max(1, min(10, rpe))
+        save()
     }
 
     func cancel() { activeSession = nil }

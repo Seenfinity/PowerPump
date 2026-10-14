@@ -9,6 +9,7 @@ struct SettingsView: View {
 
     @State private var showAbout    = false
     @State private var showLanguage = false
+    @State private var showTutorial = false
 
     var body: some View {
         NavigationView {
@@ -55,6 +56,7 @@ struct SettingsView: View {
 
                     // MARK: Support
                     Section {
+                        replayTourRow
                         supportRow
                         aboutRow
                     } header: {
@@ -80,6 +82,9 @@ struct SettingsView: View {
         }
         .onAppear { notif.checkStatus() }
         .sheet(isPresented: $showAbout) { AboutView() }
+        .fullScreenCover(isPresented: $showTutorial) {
+            TutorialView { showTutorial = false }
+        }
         .confirmationDialog("", isPresented: $showLanguage, titleVisibility: .hidden) {
             ForEach(LanguageManager.available) { lang in
                 Button(lang.flag + " " + lang.nativeName) {
@@ -276,6 +281,22 @@ struct SettingsView: View {
     }
 
     // MARK: - Support rows
+
+    private var replayTourRow: some View {
+        Button {
+            showTutorial = true
+        } label: {
+            HStack {
+                Label("Replay the tour", systemImage: "sparkles.rectangle.stack")
+                    .foregroundColor(.sbTextPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.sbTextSecondary.opacity(0.5))
+            }
+        }
+        .listRowBackground(Color.sbSurface)
+    }
 
     private var supportRow: some View {
         Button {

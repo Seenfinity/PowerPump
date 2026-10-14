@@ -9,7 +9,7 @@ enum CoachInsightsService {
     // MARK: - Weekly recap (Mondays)
 
     struct WeeklyRecap {
-        let weekRange: String              // "9–15 Jun"
+        let weekRange: String              // "9-15 Jun"
         let workoutsDone: Int
         let workoutsPlanned: Int           // best guess based on goal
         let avgDailyCalories: Int
@@ -26,9 +26,7 @@ enum CoachInsightsService {
         guard let weekStart = cal.date(byAdding: .day, value: -6, to: cal.startOfDay(for: now))
         else { return placeholder }
 
-        let workouts = WorkoutStore.shared.history.filter {
-            $0.startedAt >= weekStart && $0.finishedAt != nil
-        }.count
+        let workouts = trainingSessions(since: weekStart)
 
         let daily = FoodLogStore.shared.dailyCalories(lastDays: 7)
         let logged = daily.filter { $0.calories > 0 }
@@ -91,7 +89,9 @@ enum CoachInsightsService {
             cal.date(byAdding: .day, value: -$0, to: today)
         }
         let loggedDays = last3Days.filter { foodLog.totalCalories(for: $0) > 0 }.count
-        if loggedDays == 0 {
+        // Only for someone who used to log: a brand-new user was greeted
+        // with "three days without logging".
+        if loggedDays == 0, let oldest = last3Days.last, foodLog.hasEntries(before: oldest) {
             return CoachAlert(
                 icon: "fork.knife.circle",
                 tint: .warn,
@@ -101,9 +101,9 @@ enum CoachInsightsService {
 
         // 2. No workout this week, and weekend coming
         let weekStart = cal.date(byAdding: .day, value: -6, to: today) ?? today
-        let workoutsThisWeek = workouts.history.filter {
-            $0.startedAt >= weekStart && $0.finishedAt != nil
-        }.count
+        // Runs and sport sessions are training too: a runner out every day
+        // was told they hadn't worked out.
+        let workoutsThisWeek = trainingSessions(since: weekStart)
         if workoutsThisWeek == 0 && workouts.history.count > 0 {
             return CoachAlert(
                 icon: "dumbbell",
@@ -123,12 +123,15 @@ enum CoachInsightsService {
         }
 
         // 4. Weight stuck for 2+ weeks
+        // Not when the goal is to keep the weight — for them a flat line is
+        // the goal met — and only when the flat readings really span two weeks.
         let entries = ProgressStore.shared.entries(days: 21).sorted { $0.date < $1.date }
-        if entries.count >= 3 {
+        if entries.count >= 3, UserProfile.shared.goal != .stayFit {
             let recent = entries.suffix(3)
             let weights = recent.map(\.weightKg)
             let span = (weights.max() ?? 0) - (weights.min() ?? 0)
-            if span < 0.5 {
+            let days = recent.last!.date.timeIntervalSince(recent.first!.date) / 86_400
+            if span < 0.5, days >= 13 {
                 return CoachAlert(
                     icon: "chart.line.flattrend.xyaxis",
                     tint: .info,
@@ -151,6 +154,13 @@ enum CoachInsightsService {
     }
 
     // MARK: - Helpers
+
+    /// Training sessions since `start`: gym workouts, runs and sports.
+    private static func trainingSessions(since start: Date) -> Int {
+        WorkoutStore.shared.history.filter { $0.startedAt >= start && $0.finishedAt != nil }.count
+            + RunStore.shared.history.filter { $0.startedAt >= start }.count
+            + SportSessionStore.shared.history.filter { $0.startedAt >= start }.count
+    }
 
     private static let placeholder = WeeklyRecap(
         weekRange: "", workoutsDone: 0, workoutsPlanned: 4,
@@ -177,7 +187,7 @@ enum CoachInsightsService {
         let f = DateFormatter()
         f.locale = Locale(identifier: LanguageManager.shared.selectedCode)
         f.setLocalizedDateFormatFromTemplate("d MMM")
-        return "\(f.string(from: from)) – \(f.string(from: to))"
+        return "\(f.string(from: from)) - \(f.string(from: to))"
     }
 
     private static func localized(_ key: String) -> String {

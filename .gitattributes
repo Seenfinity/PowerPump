@@ -1,0 +1,2 @@
+# The Apple Team ID is injected at build time and must never be committed.
+*.pbxproj filter=stripteam

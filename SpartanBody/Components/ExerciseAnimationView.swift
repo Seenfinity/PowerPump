@@ -6,6 +6,8 @@ import SwiftUI
 // 3. Stick figure animation fallback
 struct ExerciseAnimationView: View {
     let exercise: Exercise
+    /// Crop to fill the frame (a full-width header) instead of fitting inside it.
+    var fill = false
 
     private var hasBundledVideo: Bool {
         Bundle.main.url(forResource: exercise.id, withExtension: "mp4") != nil
@@ -17,9 +19,9 @@ struct ExerciseAnimationView: View {
 
     var body: some View {
         if hasBundledVideo {
-            ExerciseVideoPlayer(videoName: exercise.id)
+            ExerciseVideoPlayer(videoName: exercise.id, fill: fill)
         } else if let id = imageID {
-            ExerciseImageAnimView(imageID: id)
+            ExerciseImageAnimView(imageID: id, fill: fill)
         } else {
             StickFigureView(exercise: exercise)
         }
@@ -32,6 +34,7 @@ struct ExerciseAnimationView: View {
 
 struct ExerciseImageAnimView: View {
     let imageID: String
+    var fill = false
 
     @State private var frames:  [UIImage] = []
     @State private var current  = 0
@@ -55,7 +58,7 @@ struct ExerciseImageAnimView: View {
             } else {
                 Image(uiImage: frames[current])
                     .resizable()
-                    .scaledToFit()
+                    .aspectRatio(contentMode: fill ? .fill : .fit)
                     .id(current)
                     .transition(.opacity.animation(.easeInOut(duration: 0.4)))
             }

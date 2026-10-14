@@ -2,13 +2,18 @@ import SwiftUI
 
 struct BuiltinProgram: Identifiable {
     let id: String
-    let name: String
-    let subtitle: String
+    let name: String          // internal/template name (English)
+    let subtitle: String      // internal fallback
     let icon: String
     let color: Color
     let estimatedMinutes: Int
     let muscleGroups: String
     let template: WorkoutTemplate
+
+    /// Localization keys resolved via PT(). Derived from the id so we don't
+    /// have to pass them in every initializer: "prog_push" → "prog.push.*".
+    var nameKey: String { id.replacingOccurrences(of: "prog_", with: "prog.") + ".name" }
+    var subtitleKey: String { id.replacingOccurrences(of: "prog_", with: "prog.") + ".subtitle" }
 }
 
 struct ProgramLibrary {
@@ -150,4 +155,15 @@ struct ProgramLibrary {
             createdAt: .distantPast
         )
     )
+}
+
+/// The name to show for a saved workout or routine. Sessions store the name
+/// they were started with, and the built-in ones are English ("Push Day",
+/// "Workout"); user-typed names pass through unchanged.
+enum WorkoutName {
+    static func display(_ name: String) -> String {
+        if let program = ProgramLibrary.all.first(where: { $0.template.name == name }) { return PT(program.nameKey) }
+        if ["Workout", "Watch Workout", "My Routine"].contains(name) { return NSLocalizedString(name, comment: "") }
+        return name
+    }
 }

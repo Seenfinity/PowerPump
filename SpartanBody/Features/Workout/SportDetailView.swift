@@ -6,6 +6,9 @@ import CoreLocation
 /// sessions + "Start" button. Tap a past session row to see its details.
 struct SportDetailView: View {
     let sport: SportActivity
+    /// Lifts the Start button clear of the floating tab bar when this screen
+    /// is pushed from a tab; 0 when presented from the catalog sheet.
+    var bottomInset: CGFloat = 0
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var store = SportSessionStore.shared
@@ -24,7 +27,7 @@ struct SportDetailView: View {
                     header
                     summaryCard
                     historySection
-                    Spacer(minLength: 100)
+                    Spacer(minLength: 100 + bottomInset)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -49,47 +52,62 @@ struct SportDetailView: View {
 
     // MARK: - Header
 
+    /// Photo header: the sport's own photo if it has one (yoga), otherwise its
+    /// category's — see `SportActivity.photoName`.
     private var header: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [Color.sbAccent.opacity(0.36),
-                                 Color.sbAccent.opacity(0.08)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    .frame(width: 96, height: 96)
-                Image(systemName: sport.icon)
-                    .font(.system(size: 42, weight: .semibold))
-                    .foregroundColor(.sbAccent)
-            }
-            VStack(spacing: 4) {
-                Text(verbatim: PT(sport.nameKey))
-                    .font(SBFont.display(28))
-                    .foregroundColor(.sbTextPrimary)
+        ZStack(alignment: .bottomLeading) {
+            SBPhoto(name: sport.photoName)
+                .frame(height: 180)
+
+            LinearGradient(
+                colors: [.black.opacity(0.9), .black.opacity(0.35), .black.opacity(0.05)],
+                startPoint: .bottom, endPoint: .top)
+
+            VStack(alignment: .leading, spacing: 9) {
                 HStack(spacing: 6) {
-                    Image(systemName: sport.category.icon)
-                        .font(.system(size: 10))
-                    Text(verbatim: PT(sport.category.rawValue))
-                        .font(SBFont.label(11))
-                }
-                .foregroundColor(.sbTextSecondary)
-                .textCase(.uppercase)
-                if sport.usesGPS {
-                    HStack(spacing: 4) {
-                        Image(systemName: "location.fill").font(.system(size: 10))
-                        Text(verbatim: PT("GPS"))
+                    HStack(spacing: 5) {
+                        Image(systemName: sport.category.icon)
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(verbatim: PT(sport.category.rawValue))
                             .font(SBFont.label(10))
+                            .textCase(.uppercase)
                     }
-                    .foregroundColor(.sbAccent)
-                    .padding(.horizontal, 8)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 9)
                     .padding(.vertical, 4)
-                    .background(Color.sbAccent.opacity(0.15))
-                    .cornerRadius(6)
+                    .background(Capsule().fill(Color.white.opacity(0.2)))
+
+                    if sport.usesGPS {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill").font(.system(size: 9))
+                            Text(verbatim: PT("GPS")).font(SBFont.label(10))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.sbAccent))
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Image(systemName: sport.icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.sbAccent))
+                    Text(verbatim: PT(sport.nameKey))
+                        .font(SBFont.display(26))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                        .shadow(color: .black.opacity(0.6), radius: 8, y: 1)
                 }
             }
+            .padding(16)
         }
-        .padding(.top, 12)
+        .frame(height: 180)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .padding(.top, 4)
     }
 
     // MARK: - Summary
@@ -236,7 +254,7 @@ struct SportDetailView: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
-        .padding(.bottom, 16)
+        .padding(.bottom, 16 + bottomInset)
     }
 
     // MARK: - Formatters
@@ -422,10 +440,10 @@ private struct PastRouteMap: UIViewRepresentable {
         map.addOverlay(polyline)
         let start = MKPointAnnotation()
         start.coordinate = coordinates.first!
-        start.title = "Start"
+        start.title = RouteMapStatic.startTitle
         let end = MKPointAnnotation()
         end.coordinate = coordinates.last!
-        end.title = "Finish"
+        end.title = NSLocalizedString("map.finish", comment: "")
         map.addAnnotations([start, end])
         map.setVisibleMapRect(
             polyline.boundingMapRect,
@@ -450,8 +468,9 @@ private struct PastRouteMap: UIViewRepresentable {
             let id = "endpoint"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: id) as? MKMarkerAnnotationView
                        ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
-            view.glyphImage = UIImage(systemName: annotation.title == "Start" ? "play.fill" : "flag.checkered")
-            view.markerTintColor = annotation.title == "Start" ? .systemGreen : .systemRed
+            let isStart = annotation.title == RouteMapStatic.startTitle
+            view.glyphImage = UIImage(systemName: isStart ? "play.fill" : "flag.checkered")
+            view.markerTintColor = isStart ? .systemGreen : .systemRed
             view.displayPriority = .required
             return view
         }

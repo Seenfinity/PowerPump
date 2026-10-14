@@ -7,18 +7,18 @@ struct ExerciseCorrectionView: View {
 
     @StateObject private var detector = PoseDetectionService()
     @State private var selectedExercise: SupportedExercise
+    @State private var tracker: LiveFormTracker
     @State private var repCount = 0
-    @State private var repPhase: RepPhase = .unknown
-    @State private var repBaseline: Double = 0
     @State private var showExercisePicker = false
-    @State private var feedback = FormFeedback(message: "Position yourself in frame",
-                                               detail: "Make sure your full body is visible",
-                                               isGood: false, badJoints: [])
+    @State private var feedback = LiveFormTracker.position
+    @State private var startedAt = Date()
+    @State private var lastAnalysis = Date.distantPast
     @Environment(\.dismiss) private var dismiss
 
     init(exercise: SupportedExercise = .squat) {
         initialExercise = exercise
         _selectedExercise = State(initialValue: exercise)
+        _tracker = State(initialValue: LiveFormTracker(exercise: exercise.videoExercise))
     }
 
     var body: some View {
@@ -31,7 +31,7 @@ struct ExerciseCorrectionView: View {
 
             // Skeleton overlay
             if detector.isPersonDetected {
-                SkeletonOverlayView(joints: detector.joints, badJoints: feedback.badJoints)
+                SkeletonOverlayView(joints: detector.joints, badJoints: feedback.badJoints, aspect: detector.aspect)
                     .ignoresSafeArea()
             }
 
@@ -53,8 +53,10 @@ struct ExerciseCorrectionView: View {
         }
         .sheet(isPresented: $showExercisePicker) {
             ExerciseSelectorSheet(selected: $selectedExercise, onSelect: {
+                tracker = LiveFormTracker(exercise: selectedExercise.videoExercise)
+                startedAt = Date()
                 repCount = 0
-                repPhase = .unknown
+                feedback = LiveFormTracker.position
                 showExercisePicker = false
             })
         }
@@ -80,7 +82,7 @@ struct ExerciseCorrectionView: View {
                 HStack(spacing: 6) {
                     Image(systemName: selectedExercise.icon)
                         .font(.system(size: 13, weight: .semibold))
-                    Text(selectedExercise.displayName)
+                    Text(LocalizedStringKey(selectedExercise.nameKey))
                         .font(SBFont.caption())
                         .fontWeight(.semibold)
                     Image(systemName: "chevron.down")
@@ -101,7 +103,7 @@ struct ExerciseCorrectionView: View {
                     .font(.system(size: 26, weight: .black, design: .rounded))
                     .foregroundColor(.white)
                     .monospacedDigit()
-                Text("reps")
+                Text(EXL("Reps").lowercased())
                     .font(SBFont.label(10))
                     .foregroundColor(.white.opacity(0.7))
             }
@@ -118,7 +120,7 @@ struct ExerciseCorrectionView: View {
         VStack(spacing: 0) {
             // Hint pill
             if !detector.isPersonDetected {
-                Text(selectedExercise.cameraHint)
+                Text(LocalizedStringKey(selectedExercise.cameraKey))
                     .font(SBFont.caption())
                     .foregroundColor(.white.opacity(0.8))
                     .padding(.horizontal, 16)
@@ -140,11 +142,11 @@ struct ExerciseCorrectionView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(feedback.message)
+                    Text(LocalizedStringKey(feedback.titleKey))
                         .font(SBFont.heading(16))
                         .foregroundColor(.white)
                     if !feedback.detail.isEmpty {
-                        Text(feedback.detail)
+                        Text(verbatim: feedback.detail)
                             .font(SBFont.caption())
                             .foregroundColor(.white.opacity(0.7))
                             .lineLimit(2)
@@ -158,47 +160,26 @@ struct ExerciseCorrectionView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 40)
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: feedback.message)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: feedback.titleKey)
     }
 
     // MARK: - Logic
 
-    private func updateAnalysis(_ joints: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint]) {
-        guard !joints.isEmpty else { return }
-
-        // Form analysis
-        feedback = ExerciseFormAnalyzer.analyze(exercise: selectedExercise, joints: joints)
-
-        // Rep counting
-        let trackJoint = selectedExercise.repTrackingJoint
-        guard let joint = joints[trackJoint], joint.confidence > 0.4 else { return }
-        let y = joint.location.y  // Vision: 0 = bottom, 1 = top
-
-        switch repPhase {
-        case .unknown:
-            repBaseline = y
-            repPhase = .up
-
-        case .up:
-            // Went down significantly
-            if y < repBaseline * 0.78 {
-                repPhase = .down
-            }
-
-        case .down:
-            // Came back up
-            if y > repBaseline * 0.88 {
-                repPhase = .up
-                repCount += 1
-                HapticManager.medium()
-            }
+    private func updateAnalysis(_ joints: [BodyJoint: CGPoint]) {
+        // Aspect-corrected, like the video analysis: angles measured on the
+        // raw portrait coordinates came out squashed.
+        let points = joints.mapValues { CGPoint(x: $0.x * detector.aspect, y: $0.y) }
+        guard tracker.add(points, at: Date().timeIntervalSince(startedAt)) else { return }
+        // A few reviews a second are plenty and keep the phone cool.
+        guard Date().timeIntervalSince(lastAnalysis) > 0.3 else { return }
+        lastAnalysis = Date()
+        feedback = tracker.analyze()
+        if tracker.reps > repCount {
+            repCount = tracker.reps
+            feedback.isGood ? HapticManager.success() : HapticManager.warning()
         }
     }
 }
-
-// MARK: - Rep phase
-
-private enum RepPhase { case unknown, up, down }
 
 // MARK: - Camera Preview
 
@@ -223,10 +204,12 @@ final class PreviewUIView: UIView {
 // MARK: - Skeleton Overlay
 
 struct SkeletonOverlayView: View {
-    let joints: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint]
-    let badJoints: Set<VNHumanBodyPoseObservation.JointName>
+    let joints: [BodyJoint: CGPoint]
+    let badJoints: Set<BodyJoint>
+    /// Width / height of the camera frames.
+    let aspect: CGFloat
 
-    private let connections: [(VNHumanBodyPoseObservation.JointName, VNHumanBodyPoseObservation.JointName)] = [
+    private let connections: [(BodyJoint, BodyJoint)] = [
         (.neck, .leftShoulder), (.neck, .rightShoulder),
         (.leftShoulder, .leftElbow), (.leftElbow, .leftWrist),
         (.rightShoulder, .rightElbow), (.rightElbow, .rightWrist),
@@ -237,35 +220,33 @@ struct SkeletonOverlayView: View {
     ]
 
     var body: some View {
-        GeometryReader { geo in
-            Canvas { ctx, size in
-                // Draw connections
-                for (a, b) in connections {
-                    guard let pa = joints[a], let pb = joints[b],
-                          pa.confidence > 0.3, pb.confidence > 0.3 else { continue }
-                    let ptA = visionToScreen(pa.location, size: size)
-                    let ptB = visionToScreen(pb.location, size: size)
-                    var path = Path()
-                    path.move(to: ptA)
-                    path.addLine(to: ptB)
-                    let isBad = badJoints.contains(a) || badJoints.contains(b)
-                    ctx.stroke(path, with: .color(isBad ? .red.opacity(0.85) : .green.opacity(0.8)), lineWidth: 3)
-                }
-
-                // Draw joint dots
-                for (name, point) in joints where point.confidence > 0.3 {
-                    let pt = visionToScreen(point.location, size: size)
-                    let rect = CGRect(x: pt.x - 5, y: pt.y - 5, width: 10, height: 10)
-                    let isBad = badJoints.contains(name)
-                    ctx.fill(Path(ellipseIn: rect), with: .color(isBad ? .red : .green))
-                }
+        Canvas { ctx, size in
+            for (a, b) in connections {
+                guard let pa = joints[a], let pb = joints[b] else { continue }
+                var path = Path()
+                path.move(to: visionToScreen(pa, size: size))
+                path.addLine(to: visionToScreen(pb, size: size))
+                let isBad = badJoints.contains(a) || badJoints.contains(b)
+                ctx.stroke(path, with: .color(isBad ? .red.opacity(0.85) : .green.opacity(0.8)), lineWidth: 3)
+            }
+            for (name, point) in joints {
+                let pt = visionToScreen(point, size: size)
+                let isBad = badJoints.contains(name)
+                ctx.fill(Path(ellipseIn: CGRect(x: pt.x - 5, y: pt.y - 5, width: 10, height: 10)),
+                         with: .color(isBad ? .red : .green))
             }
         }
+        .allowsHitTesting(false)
     }
 
+    /// The preview fills the screen and crops the frame's overflow, so the
+    /// skeleton has to be placed on the same scaled, centred frame — mapped
+    /// straight onto the screen it drifted sideways from the body.
     private func visionToScreen(_ pt: CGPoint, size: CGSize) -> CGPoint {
-        // Vision: origin bottom-left, y up → SwiftUI: origin top-left, y down
-        CGPoint(x: pt.x * size.width, y: (1 - pt.y) * size.height)
+        let frameH = max(size.height, size.width / aspect)
+        let frameW = frameH * aspect
+        return CGPoint(x: pt.x * frameW - (frameW - size.width) / 2,
+                       y: (1 - pt.y) * frameH - (frameH - size.height) / 2)
     }
 }
 
@@ -296,10 +277,10 @@ private struct ExerciseSelectorSheet: View {
                                     .foregroundColor(.sbAccent)
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(exercise.displayName)
+                                Text(LocalizedStringKey(exercise.nameKey))
                                     .font(SBFont.body())
                                     .foregroundColor(.sbTextPrimary)
-                                Text(exercise.cameraHint)
+                                Text(LocalizedStringKey(exercise.cameraKey))
                                     .font(SBFont.caption())
                                     .foregroundColor(.sbTextSecondary)
                             }

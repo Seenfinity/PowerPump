@@ -73,3 +73,16 @@ CloudflareWorker/.dev.vars
 # =========================
 *.log
 *.tmp
+
+# =========================
+# Private: signing, keys, local tools
+# =========================
+ExportOptions*.plist
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+.env
+.env.*
+.dev.vars
+.claude/

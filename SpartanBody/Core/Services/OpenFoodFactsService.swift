@@ -48,7 +48,10 @@ final class OpenFoodFactsService {
               json["status"] as? Int == 1,
               let product = json["product"] as? [String: Any],
               let nutriments = product["nutriments"] as? [String: Any],
-              let kcal = doubleValue(nutriments["energy-kcal_100g"]) else {
+              // Many labels give energy only in kilojoules.
+              let kcal = doubleValue(nutriments["energy-kcal_100g"])
+                ?? doubleValue(nutriments["energy-kj_100g"]).map({ $0 / 4.184 })
+                ?? doubleValue(nutriments["energy_100g"]).map({ $0 / 4.184 }) else {
             throw BarcodeLookupError.notFound
         }
 

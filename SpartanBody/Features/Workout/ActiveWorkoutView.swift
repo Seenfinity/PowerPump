@@ -60,6 +60,11 @@ struct ActiveWorkoutView: View {
             }
         }
         .onAppear { startClock() }
+        // Tapping a kg or reps box selects the number, so typing replaces it.
+        .onReceive(NotificationCenter.default.publisher(for: UITextField.textDidBeginEditingNotification)) { note in
+            guard let field = note.object as? UITextField else { return }
+            DispatchQueue.main.async { field.selectAll(nil) }
+        }
         .onDisappear { clockTimer?.invalidate() }
         .onChange(of: showRestTimer) { showing in
             if showing {
@@ -76,7 +81,7 @@ struct ActiveWorkoutView: View {
         }
         .sheet(isPresented: $showSaveRoutine) {
             SaveRoutineSheet(routineName: $routineName) {
-                store.saveAsTemplate(name: routineName.isEmpty ? "My Routine" : routineName)
+                store.saveAsTemplate(name: routineName.isEmpty ? NSLocalizedString("My Routine", comment: "") : routineName)
                 HapticManager.heavy()
                 store.finish()
                 isPresented = false
@@ -87,9 +92,12 @@ struct ActiveWorkoutView: View {
             }
         }
         .confirmationDialog("Finish Workout?", isPresented: $showFinishDialog, titleVisibility: .visible) {
+            // A routine needs exercises; this saved empty ones.
+            if !(store.activeSession?.exercises.isEmpty ?? true) {
             Button("Save as Routine & Finish") {
-                routineName = store.activeSession?.name ?? "My Routine"
+                routineName = WorkoutName.display(store.activeSession?.name ?? "My Routine")
                 showSaveRoutine = true
+            }
             }
             Button("Just Finish") {
                 HapticManager.heavy()
@@ -99,7 +107,7 @@ struct ActiveWorkoutView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             let sets = store.activeSession?.completedSets ?? 0
-            Text("\(sets) set\(sets == 1 ? "" : "s") completed")
+            Text(verbatim: String.localizedStringWithFormat(NSLocalizedString("workout.setsCompleted %lld", comment: ""), sets))
         }
     }
 
@@ -122,7 +130,7 @@ struct ActiveWorkoutView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text(store.activeSession?.name ?? "Workout")
+                Text(WorkoutName.display(store.activeSession?.name ?? "Workout"))
                     .font(SBFont.heading(16))
                     .foregroundColor(.sbTextPrimary)
                 Text(formatTime(elapsedSeconds))
@@ -218,6 +226,38 @@ private struct ExerciseCard: View {
         SupportedExercise.allCases.first { $0.rawValue == sessionExercise.exerciseID }
     }
 
+    /// Explains why today's weight went up, held, or dropped — the visible half
+    /// of the progression engine. Hidden on a first-ever session, where there's
+    /// nothing to compare against.
+    @ViewBuilder
+    private var progressionBadge: some View {
+        let targetReps = sessionExercise.sets.first?.reps ?? 10
+        let plan = store.progression(for: sessionExercise.exerciseID, targetReps: targetReps)
+
+        switch plan.reason {
+        case .progressed:
+            badge(icon: "arrow.up.right", text: EXL("Progress"), color: .sbGreen)
+        case .hold:
+            badge(icon: "equal", text: EXL("Repeat"), color: .sbTextSecondary)
+        case .deload:
+            badge(icon: "arrow.down.right", text: EXL("Deload"), color: .sbAccent)
+        case .firstTime:
+            EmptyView()
+        }
+    }
+
+    private func badge(icon: String, text: String, color: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 9, weight: .bold))
+            Text(text).font(SBFont.label(10))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.15))
+        .cornerRadius(6)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -231,7 +271,7 @@ private struct ExerciseCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(exercise?.name ?? sessionExercise.exerciseID)
+                    Text(exercise.map { EXL($0.name) } ?? EXL(sessionExercise.exerciseID))
                         .font(SBFont.heading(15))
                         .foregroundColor(.sbTextPrimary)
                     if let pr = store.personalRecord(for: sessionExercise.exerciseID) {
@@ -244,13 +284,15 @@ private struct ExerciseCard: View {
                                 .foregroundColor(.sbTextSecondary)
                         }
                     } else {
-                        Text(exercise?.primaryMuscle ?? "")
+                        Text(exercise.map { EXL($0.primaryMuscle) } ?? "")
                             .font(SBFont.caption())
                             .foregroundColor(.sbTextSecondary)
                     }
                 }
 
                 Spacer()
+
+                progressionBadge
 
                 Text("\(sessionExercise.completedSetCount)/\(sessionExercise.sets.count)")
                     .font(SBFont.caption())
@@ -286,9 +328,9 @@ private struct ExerciseCard: View {
 
             // Column headers
             HStack {
-                Text("SET").frame(width: 40, alignment: .center)
+                Text(EXL("Set").uppercased()).frame(width: 40, alignment: .center)
                 Text("KG").frame(maxWidth: .infinity)
-                Text("REPS").frame(maxWidth: .infinity)
+                Text(EXL("Reps").uppercased()).frame(maxWidth: .infinity)
                 Text("").frame(width: 44)
             }
             .font(SBFont.label(10))
@@ -369,7 +411,10 @@ private struct SetRow: View {
                 .background(Color.sbSurfaceRaised)
                 .cornerRadius(8)
                 .onChange(of: weightText) { val in
-                    if let w = Double(val) { store.updateWeight(w, exerciseIndex: exerciseIndex, setIndex: setIndex) }
+                    // The keypad types "92,5" in most languages.
+                    if let w = Double(val.replacingOccurrences(of: ",", with: ".")) {
+                        store.updateWeight(w, exerciseIndex: exerciseIndex, setIndex: setIndex)
+                    }
                 }
 
             TextField("0", text: $repsText)

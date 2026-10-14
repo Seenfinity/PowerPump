@@ -6,6 +6,15 @@ enum RunActivityType: String, Codable, CaseIterable {
     case walk   = "Walk"
     case hike   = "Hike"
 
+    /// Metres per second above which a jump between two GPS fixes is a
+    /// glitch rather than movement (a sprinter peaks around 12 m/s).
+    var maxPlausibleSpeed: Double {
+        switch self {
+        case .run:          return 12
+        case .walk, .hike:  return 7
+        }
+    }
+
     var icon: String {
         switch self {
         case .run:  return "figure.run"

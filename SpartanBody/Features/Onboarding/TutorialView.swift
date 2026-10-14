@@ -33,9 +33,33 @@ struct TutorialView: View {
 
         .init(icon: "dumbbell.fill",
               iconColor: .sbAccent,
-              title: "tutorial.workout.title",
-              body:  "tutorial.workout.body",
-              highlight: "tutorial.workout.hint"),
+              title: "tutorial.gym.title",
+              body:  "tutorial.gym.body",
+              highlight: "tutorial.gym.hint"),
+
+        .init(icon: "figure.run",
+              iconColor: .sbAccent,
+              title: "tutorial.run.title",
+              body:  "tutorial.run.body",
+              highlight: "tutorial.run.hint"),
+
+        .init(icon: "map.fill",
+              iconColor: .sbAccent,
+              title: "tutorial.route.title",
+              body:  "tutorial.route.body",
+              highlight: "tutorial.route.hint"),
+
+        .init(icon: "figure.walk",
+              iconColor: .sbAccent,
+              title: "tutorial.programs.title",
+              body:  "tutorial.programs.body",
+              highlight: "tutorial.programs.hint"),
+
+        .init(icon: "sportscourt.fill",
+              iconColor: .sbAccent,
+              title: "tutorial.sports.title",
+              body:  "tutorial.sports.body",
+              highlight: "tutorial.sports.hint"),
 
         .init(icon: "fork.knife",
               iconColor: .sbAccent,
@@ -43,11 +67,11 @@ struct TutorialView: View {
               body:  "tutorial.nutrition.body",
               highlight: "tutorial.nutrition.hint"),
 
-        .init(icon: "sparkles",
+        .init(icon: "chart.bar.fill",
               iconColor: .sbAccent,
-              title: "tutorial.coach.title",
-              body:  "tutorial.coach.body",
-              highlight: "tutorial.coach.hint"),
+              title: "tutorial.progress.title",
+              body:  "tutorial.progress.body",
+              highlight: "tutorial.progress.hint"),
 
         .init(icon: "checkmark.circle.fill",
               iconColor: .sbGreen,

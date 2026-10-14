@@ -107,6 +107,10 @@ enum SportLibrary {
                       icon: "figure.martial.arts", category: .indoor, usesGPS: false,
                       healthKitType: HKWorkoutActivityType.martialArts.rawValue,
                       kcalPerMinute: 10),
+        SportActivity(id: "bjj", nameKey: "sport.bjj",
+                      icon: "figure.martial.arts", category: .indoor, usesGPS: false,
+                      healthKitType: HKWorkoutActivityType.martialArts.rawValue,
+                      kcalPerMinute: 10),
         SportActivity(id: "hiit", nameKey: "sport.hiit",
                       icon: "figure.highintensity.intervaltraining", category: .indoor, usesGPS: false,
                       healthKitType: HKWorkoutActivityType.highIntensityIntervalTraining.rawValue,
@@ -171,5 +175,43 @@ enum SportLibrary {
 
     static func byCategory(_ cat: SportCategory) -> [SportActivity] {
         all.filter { $0.category == cat }
+    }
+
+    static func byID(_ id: String) -> SportActivity? {
+        all.first { $0.id == id }
+    }
+}
+
+// MARK: - Sport families (drive plan + diet adjustments)
+
+/// Groups the catalog into training families so the coach can adapt the weekly
+/// plan without needing 29 separate templates.
+enum SportFamily {
+    case grappling      // BJJ, martial arts, boxing: grip, neck, core, conditioning
+    case endurance      // cycling, hiking, treadmill, rowing…: legs + engine
+    case racquet        // tennis, padel: rotational power, shoulders
+    case team           // soccer, basketball, volleyball, baseball: sprint + agility
+    case water          // swimming, surfing…: shoulders + pull strength
+    case mindBody       // yoga, pilates, dance: mobility focus already covered
+    case power          // climbing, HIIT, stair: general strength support
+
+    static func forSport(id: String) -> SportFamily {
+        switch id {
+        case "bjj", "martial_arts", "boxing":
+            return .grappling
+        case "cycling", "hiking", "treadmill", "elliptical", "stationary_bike", "rowing",
+             "skating", "skiing", "snowboarding", "golf":
+            return .endurance
+        case "tennis", "padel":
+            return .racquet
+        case "soccer", "basketball", "volleyball", "baseball":
+            return .team
+        case "swimming", "open_water_swim", "surfing", "diving", "paddleboard", "kayaking":
+            return .water
+        case "yoga", "pilates", "dance":
+            return .mindBody
+        default:
+            return .power
+        }
     }
 }

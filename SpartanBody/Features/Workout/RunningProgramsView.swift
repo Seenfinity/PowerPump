@@ -63,42 +63,69 @@ private struct ProgramCatalogCard: View {
     let program: RunningProgram
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(String(format: NSLocalizedString("%lld-week program", comment: ""), program.totalWeeks))
-                    .font(SBFont.label(10))
-                    .foregroundColor(.sbAccent)
-                    .textCase(.uppercase)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.sbAccent.opacity(0.15))
-                    .cornerRadius(6)
-                Spacer()
-                Text("\(Int(progress.progress(in: program) * 100))%")
-                    .font(SBFont.label(11))
+        VStack(alignment: .leading, spacing: 0) {
+            // `headerImageName` has been on the model since the start but was
+            // never drawn — the artwork simply didn't exist yet.
+            photoHeader
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(verbatim: PT(program.subtitleKey))
+                    .font(SBFont.caption())
                     .foregroundColor(.sbTextSecondary)
+
+                HStack(spacing: 16) {
+                    LevelDots(label: "Endurance", level: program.endurance)
+                    LevelDots(label: "Speed",     level: program.speed)
+                }
             }
-
-            Text(verbatim: PT(program.nameKey))
-                .font(SBFont.display(22))
-                .foregroundColor(.sbTextPrimary)
-                .multilineTextAlignment(.leading)
-
-            Text(verbatim: PT(program.subtitleKey))
-                .font(SBFont.caption())
-                .foregroundColor(.sbTextSecondary)
-
-            HStack(spacing: 16) {
-                LevelDots(label: "Endurance", level: program.endurance)
-                LevelDots(label: "Speed",     level: program.speed)
-            }
-            .padding(.top, 2)
+            .padding(18)
         }
-        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.sbSurface)
         .cornerRadius(18)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.sbBorder, lineWidth: 1))
+        // Clip after the border so the photo's top corners follow the card.
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var photoHeader: some View {
+        ZStack(alignment: .bottomLeading) {
+            SBPhoto(name: program.headerImageName)
+                .frame(height: 132)
+
+            LinearGradient(
+                colors: [.black.opacity(0.9), .black.opacity(0.35), .black.opacity(0.05)],
+                startPoint: .bottom, endPoint: .top)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(String(format: NSLocalizedString("%lld-week program", comment: ""), program.totalWeeks))
+                        .font(SBFont.label(10))
+                        .foregroundColor(.white)
+                        .textCase(.uppercase)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.sbAccent))
+                    Spacer()
+                    let pct = Int(progress.progress(in: program) * 100)
+                    if pct > 0 {
+                        Text(verbatim: "\(pct)%")
+                            .font(SBFont.label(11))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.22)))
+                    }
+                }
+                Text(verbatim: PT(program.nameKey))
+                    .font(SBFont.display(21))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .shadow(color: .black.opacity(0.6), radius: 8, y: 1)
+            }
+            .padding(14)
+        }
+        .frame(height: 132)
     }
 }
 

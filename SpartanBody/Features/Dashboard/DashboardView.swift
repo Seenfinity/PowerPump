@@ -3,15 +3,19 @@ import SwiftUI
 struct DashboardView: View {
     @ObservedObject private var profile    = UserProfile.shared
     @ObservedObject private var foodLog    = FoodLogStore.shared
-    @ObservedObject private var water      = WaterStore.shared
     @ObservedObject private var workouts   = WorkoutStore.shared
     @ObservedObject private var challenges = ChallengeStore.shared
     @ObservedObject private var health     = HealthKitService.shared
+    @ObservedObject private var planStore  = PlanStore.shared
+    @ObservedObject private var history    = CoachHistoryStore.shared
+    @State private var showHistory      = false
     @State private var showCoach        = false
     @State private var showNutrition    = false
     @State private var showChallenges   = false
-    @State private var showFoodScanner  = false
     @State private var showBarcodeScanner = false
+    @State private var showLogWeight    = false
+    @State private var showChat         = false
+    @State private var showFormVideo    = false
     @State private var showSettings     = false
     @State private var appeared         = false
 
@@ -22,6 +26,8 @@ struct DashboardView: View {
             weekRange: "", workoutsDone: 0, workoutsPlanned: 4,
             avgDailyCalories: 0, calorieTarget: 2000, avgWater: 0,
             weightChange: nil, highlight: "")
+    private var isMonday: Bool { Calendar.current.component(.weekday, from: .now) == 2 }
+
     // Show the recap on Mondays, or any day if there's actual data to show.
     private var showWeeklyRecap: Bool {
         let isMonday = Calendar.current.component(.weekday, from: .now) == 2
@@ -30,6 +36,8 @@ struct DashboardView: View {
     }
 
     private var caloriesConsumed: Int { Int(foodLog.todayCalories) }
+    /// Today's targets — higher on a heavy training day, lower on rest days.
+    private var target: MacroTarget { planStore.todayTargets(for: profile) }
     private var caloriesBurned: Int {
         health.isAuthorized && health.activeEnergyToday > 0
             ? Int(health.activeEnergyToday)
@@ -58,23 +66,36 @@ struct DashboardView: View {
                             CoachAlertBanner(alert: alert)
                                 .slideIn(appeared, delay: 0.04)
                         }
-                        if showWeeklyRecap {
+                        // Monday: last week's review from the coach history —
+                        // the same one the Profile shows, not a second system.
+                        // The old recap stays only until a first review exists.
+                        if isMonday, history.reviews.first != nil {
+                            CoachHistoryCard { showHistory = true }
+                                .slideIn(appeared, delay: 0.06)
+                                .sheet(isPresented: $showHistory) { CoachHistoryView() }
+                        } else if showWeeklyRecap {
                             WeeklyRecapCard(recap: weeklyRecap)
                                 .slideIn(appeared, delay: 0.06)
                         }
                         calorieRingSection
                             .slideIn(appeared, delay: 0.08)
-                        macroSection
+                        HomeStatsGrid { showLogWeight = true }
                             .slideIn(appeared, delay: 0.14)
-                        waterSection
+                        // "How am I doing" → "what do I train today" → "log it".
+                        // The coach used to sit at the very bottom, where the
+                        // user had to scroll past everything to find it.
+                        CoachTodayCard { showCoach = true }
                             .slideIn(appeared, delay: 0.20)
+                            .fullScreenCover(isPresented: $showCoach) { AICoachView() }
                         quickActionsSection
                             .slideIn(appeared, delay: 0.26)
+                        // waterSection is gone — the water tile in
+                        // HomeStatsGrid carries the same eight glasses.
                         challengeCard
-                            .slideIn(appeared, delay: 0.32)
-                        aiCoachCard
                             .slideIn(appeared, delay: 0.38)
-                        Spacer(minLength: 32)
+                        // The tab bar floats over the scroll view — 32pt left
+                        // the last card sitting behind it.
+                        Spacer(minLength: 110)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -87,6 +108,13 @@ struct DashboardView: View {
                 appeared = true
             }
             if health.isAuthorized { health.fetchTodayStats() }
+            // A week after the plan was built, read the new history and plan
+            // the next one — otherwise week one repeats forever.
+            planStore.regenerateIfStale()
+            if isMonday { history.refresh() }
+            // The active challenge card is on this screen, so check the
+            // automatic goals here too, not only in the challenges list.
+            challenges.autoCheck()
             coachAlert  = CoachInsightsService.currentAlert()
             weeklyRecap = CoachInsightsService.weeklyRecap()
         }
@@ -165,117 +193,104 @@ struct DashboardView: View {
                     SBTag(text: profile.goal.rawValue)
                 }
 
-                ZStack {
-                    // Background ring
-                    Circle()
-                        .stroke(Color.sbSurfaceRaised, lineWidth: 16)
-                        .frame(width: 170, height: 170)
-
-                    // Progress ring
-                    Circle()
-                        .trim(from: 0, to: min(Double(caloriesConsumed) / Double(profile.dailyCalorieTarget), 1.0))
-                        .stroke(
-                            caloriesConsumed > profile.dailyCalorieTarget
-                                ? AnyShapeStyle(Color.sbRed)
-                                : AnyShapeStyle(AngularGradient(
-                                    colors: [.sbAccent, .sbCyan, .sbAccent],
-                                    center: .center, startAngle: .degrees(-90), endAngle: .degrees(270))),
-                            style: StrokeStyle(lineWidth: 16, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: 170, height: 170)
-                        .shadow(color: Color.sbAccent.opacity(caloriesConsumed > 0 ? 0.35 : 0), radius: 8)
-                        .animation(.spring(), value: caloriesConsumed)
-
-                    VStack(spacing: 2) {
-                        Text("\(caloriesConsumed)")
-                            .font(SBFont.display(38))
-                            .foregroundColor(.sbTextPrimary)
-                            .monospacedDigit()
-                        Text("/ \(profile.dailyCalorieTarget) kcal")
-                            .font(SBFont.caption())
-                            .foregroundColor(.sbTextSecondary)
+                // Ring beside the macros instead of stacked in two separate
+                // cards: same information, roughly half the height, so the
+                // coach card and the tiles below are reachable without
+                // scrolling.
+                HStack(alignment: .center, spacing: 18) {
+                    calorieRing
+                    VStack(spacing: 11) {
+                        MacroRow(name: "Protein", current: Int(foodLog.todayProtein),
+                                 target: target.protein,
+                                 unit: "g", color: .sbAccent)
+                        MacroRow(name: "Carbs", current: Int(foodLog.todayCarbs),
+                                 target: target.carbs,
+                                 unit: "g", color: .sbGreen)
+                        MacroRow(name: "Fat", current: Int(foodLog.todayFat),
+                                 target: target.fat,
+                                 unit: "g", color: Color.orange)
                     }
                 }
-                .padding(.vertical, 6)
 
+                Divider().background(Color.sbBorder)
+
+                // Kept from the old three stat boxes — burned calories appear
+                // nowhere else, so dropping this row would lose them.
                 HStack(spacing: 0) {
-                    SBStatBox(value: "\(profile.dailyCalorieTarget - caloriesConsumed)",
-                              label: "Remaining", unit: "kcal")
-                        .frame(maxWidth: .infinity)
-
-                    Divider().frame(height: 40).background(Color.sbBorder)
-
-                    SBStatBox(value: "\(caloriesConsumed)",
-                              label: "Consumed", unit: "kcal", accent: .sbGreen)
-                        .frame(maxWidth: .infinity)
-
-                    Divider().frame(height: 40).background(Color.sbBorder)
-
-                    SBStatBox(value: "\(caloriesBurned)",
-                              label: "Burned", unit: "kcal", accent: .sbRed)
-                        .frame(maxWidth: .infinity)
+                    miniStat("\(max(target.kcal - caloriesConsumed, 0))",
+                             "Remaining", .sbTextPrimary)
+                    miniStat("\(caloriesConsumed)", "Consumed", .sbGreen)
+                    miniStat("\(caloriesBurned)", "Burned", .sbRed)
                 }
+
+                // Food logging used to be a quick action; it now sits on the
+                // card that shows what was eaten.
+                Button {
+                    HapticManager.light()
+                    showNutrition = true
+                } label: {
+                    Label("quick.logMeal", systemImage: "plus.circle.fill")
+                        .font(SBFont.body(15))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.sbAccent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.sbAccentDim)
+                        .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { showNutrition = true }
     }
 
-    // MARK: - Macros
-    private var macroSection: some View {
-        SBCard {
-            VStack(spacing: 14) {
-                HStack {
-                    Text("Macros")
-                        .font(SBFont.heading())
-                        .foregroundColor(.sbTextPrimary)
-                    Spacer()
-                    Text("Today")
-                        .font(SBFont.caption())
-                        .foregroundColor(.sbTextSecondary)
-                }
+    private var calorieRing: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.sbSurfaceRaised, lineWidth: 11)
+            Circle()
+                .trim(from: 0, to: min(Double(caloriesConsumed) / Double(max(target.kcal, 1)), 1.0))
+                .stroke(
+                    caloriesConsumed > target.kcal
+                        ? AnyShapeStyle(Color.sbRed)
+                        : AnyShapeStyle(AngularGradient(
+                            colors: [.sbAccent, .sbCyan, .sbAccent],
+                            center: .center, startAngle: .degrees(-90), endAngle: .degrees(270))),
+                    style: StrokeStyle(lineWidth: 11, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .shadow(color: Color.sbAccent.opacity(caloriesConsumed > 0 ? 0.35 : 0), radius: 6)
+                .animation(.spring(), value: caloriesConsumed)
 
-                MacroRow(name: "Protein", current: Int(foodLog.todayProtein), target: profile.dailyProteinTarget,
-                         unit: "g", color: .sbAccent)
-                MacroRow(name: "Carbs",   current: Int(foodLog.todayCarbs), target: Int(Double(profile.dailyCalorieTarget) * 0.45 / 4),
-                         unit: "g", color: .sbGreen)
-                MacroRow(name: "Fat",     current: Int(foodLog.todayFat), target: Int(Double(profile.dailyCalorieTarget) * 0.25 / 9),
-                         unit: "g", color: Color.orange)
+            VStack(spacing: 0) {
+                Text("\(caloriesConsumed)")
+                    .font(SBFont.display(25))
+                    .foregroundColor(.sbTextPrimary)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                Text(verbatim: String(format: NSLocalizedString("of %lld", comment: ""),
+                                      target.kcal))
+                    .font(SBFont.label(10))
+                    .foregroundColor(.sbTextSecondary)
             }
+            .padding(.horizontal, 12)
         }
+        .frame(width: 112, height: 112)
     }
 
-    // MARK: - Water
-    private var waterSection: some View {
-        SBCard {
-            VStack(spacing: 14) {
-                HStack {
-                    Text("Water Intake")
-                        .font(SBFont.heading())
-                        .foregroundColor(.sbTextPrimary)
-                    Spacer()
-                    Text("\(water.todayGlasses) / 8 glasses")
-                        .font(SBFont.caption())
-                        .foregroundColor(.sbTextSecondary)
-                }
-
-                HStack(spacing: 8) {
-                    ForEach(0..<8) { i in
-                        Button {
-                            let newValue = i < water.todayGlasses ? i : i + 1
-                            water.set(newValue)
-                            HapticManager.light()
-                        } label: {
-                            Image(systemName: i < water.todayGlasses ? "drop.fill" : "drop")
-                                .foregroundColor(i < water.todayGlasses ? .sbCyan : Color.sbTextSecondary.opacity(0.35))
-                                .font(.system(size: 22))
-                                .scaleEffect(i < water.todayGlasses ? 1.1 : 1.0)
-                                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: water.todayGlasses)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-            }
+    private func miniStat(_ value: String, _ label: String, _ color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(verbatim: value)
+                .font(SBFont.heading(16))
+                .foregroundColor(color)
+                .monospacedDigit()
+            Text(LocalizedStringKey(label))
+                .font(SBFont.label(10))
+                .foregroundColor(.sbTextSecondary)
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Challenge card
@@ -295,7 +310,7 @@ struct DashboardView: View {
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Text(def.name)
+                            Text(LocalizedStringKey(def.name))
                                 .font(SBFont.heading(15))
                                 .foregroundColor(.sbTextPrimary)
                             if challenges.active.count > 1 {
@@ -316,7 +331,7 @@ struct DashboardView: View {
                             }
                         }
                         .frame(height: 5)
-                        Text("\(active.completedDayKeys.count)/\(active.totalDays) days · \(active.isDayComplete(.now) ? "Done today ✓" : "Pending today")")
+                        Text("\(active.completedDayKeys.count)/\(active.totalDays) days · \(NSLocalizedString(active.isDayComplete(.now) ? "Done today ✓" : "Pending today", comment: ""))")
                             .font(SBFont.label(11))
                             .foregroundColor(active.isDayComplete(.now) ? def.color : .sbTextSecondary)
                     }
@@ -362,45 +377,6 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - AI Coach card
-
-    private var aiCoachCard: some View {
-        Button { showCoach = true } label: {
-            HStack(spacing: 16) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.sbAccent.opacity(0.15))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.sbAccent)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("AI Coach")
-                        .font(SBFont.heading(16))
-                        .foregroundColor(.sbTextPrimary)
-                    Text("Get your personalised free 7-day plan")
-                        .font(SBFont.caption())
-                        .foregroundColor(.sbTextSecondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.sbAccent)
-            }
-            .padding(16)
-            .background(Color.sbSurface)
-            .cornerRadius(18)
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.sbAccent.opacity(0.4), lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
-        .fullScreenCover(isPresented: $showCoach) { AICoachView() }
-    }
-
     // MARK: - Quick Actions
     private var quickActionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -408,29 +384,30 @@ struct DashboardView: View {
                 .font(SBFont.heading())
                 .foregroundColor(.sbTextPrimary)
 
+            // Meal, weight and run were dropped: food is logged from Recipes,
+            // the weight tile above logs a weigh-in, and the tab bar opens
+            // running in one tap. The coach chat and the form check are the
+            // two things only reachable from deep inside other screens.
             HStack(spacing: 10) {
-                // AI food scanner hidden for v1 — re-enable once the Cloudflare
-                // Worker is deployed (see CloudflareWorker/README.md).
-                // QuickActionButton(icon: "camera.fill", label: "Scan Food") {
-                //     HapticManager.light(); showFoodScanner = true
-                // }
-                QuickActionButton(icon: "barcode.viewfinder", label: "Scan Barcode") {
+                QuickActionButton(icon: "bubble.left.and.text.bubble.right.fill", label: "quick.coach") {
+                    HapticManager.medium()
+                    showChat = true
+                }
+                QuickActionButton(icon: "video.badge.waveform", label: "quick.form") {
+                    HapticManager.light()
+                    showFormVideo = true
+                }
+                QuickActionButton(icon: "barcode.viewfinder", label: "Barcode") {
                     HapticManager.light()
                     showBarcodeScanner = true
                 }
-                QuickActionButton(icon: "play.fill",         label: "Start Workout") {
-                    HapticManager.medium()
-                    NotificationCenter.default.post(name: .switchToTab, object: 1)
-                }
-                QuickActionButton(icon: "fork.knife",        label: "Log Meal") {
-                    HapticManager.light()
-                    showNutrition = true
-                }
             }
         }
+        .fullScreenCover(isPresented: $showChat)      { CoachChatView() }
+        .fullScreenCover(isPresented: $showFormVideo) { VideoFormAnalysisView() }
+        .sheet(isPresented: $showLogWeight)       { LogWeightSheet() }
         .sheet(isPresented: $showNutrition)       { NutritionView() }
         .sheet(isPresented: $showChallenges)      { ChallengesView() }
-        .sheet(isPresented: $showFoodScanner)     { FoodScannerView() }
         .sheet(isPresented: $showBarcodeScanner)  {
             BarcodeScanSheet { item in
                 FoodLogStore.shared.add(item, grams: 100, meal: .snack)

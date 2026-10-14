@@ -16,6 +16,11 @@ struct SBRulerPicker: View {
         stride(from: range.lowerBound, through: range.upperBound, by: step).map { $0 }
     }
 
+    /// Distance between two ticks. Each tick used to be `tickSpacing` wide
+    /// with `tickSpacing` of HStack spacing on top — twice what the offset
+    /// assumed — so the ruler drifted away from the value shown above it.
+    private var pitch: CGFloat { tickSpacing * 2 }
+
     private var indexOfCurrent: Int {
         let idx = Int(round((value - range.lowerBound) / step))
         return min(max(idx, 0), ticks.count - 1)
@@ -24,14 +29,17 @@ struct SBRulerPicker: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                HStack(spacing: tickSpacing) {
+                HStack(spacing: 0) {
                     ForEach(Array(ticks.enumerated()), id: \.offset) { idx, tick in
                         tickMark(idx: idx, value: tick)
                     }
                 }
                 .frame(height: 50)
-                // Slide the tick row so the chosen value sits under the cursor.
-                .offset(x: geo.size.width / 2 - CGFloat(indexOfCurrent) * tickSpacing)
+                // Start the row at the left edge (a ZStack centres it, which
+                // the offset below didn't account for), then slide it so the
+                // chosen tick's centre sits under the cursor.
+                .frame(width: geo.size.width, alignment: .leading)
+                .offset(x: geo.size.width / 2 - (CGFloat(indexOfCurrent) + 0.5) * pitch)
                 .animation(.easeOut(duration: 0.08), value: value)
 
                 centerIndicator
@@ -44,7 +52,7 @@ struct SBRulerPicker: View {
                     .onChanged { drag in
                         if dragAnchor == nil { dragAnchor = value }
                         let anchor = dragAnchor ?? value
-                        let stepsMoved = -drag.translation.width / tickSpacing
+                        let stepsMoved = -drag.translation.width / pitch
                         let newValue = anchor + Double(stepsMoved) * step
                         let clamped = min(max(newValue, range.lowerBound), range.upperBound)
                         let snapped = (round(clamped / step) * step)
@@ -74,7 +82,7 @@ struct SBRulerPicker: View {
                 Spacer().frame(height: 14)
             }
         }
-        .frame(width: tickSpacing)
+        .frame(width: pitch)
     }
 
     private var centerIndicator: some View {

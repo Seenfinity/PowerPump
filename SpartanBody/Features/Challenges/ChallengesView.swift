@@ -70,7 +70,7 @@ struct ChallengesView: View {
 
     private var activeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Active (\(store.active.count))")
+            Text(verbatim: String(format: NSLocalizedString("Active (%lld)", comment: ""), store.active.count))
                 .font(SBFont.heading())
                 .foregroundColor(.sbTextPrimary)
 
@@ -122,10 +122,10 @@ struct ActiveChallengeCard: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(def.name)
+                        Text(LocalizedStringKey(def.name))
                             .font(SBFont.heading(16))
                             .foregroundColor(.sbTextPrimary)
-                        Text(def.subtitle)
+                        Text(LocalizedStringKey(def.subtitle))
                             .font(SBFont.caption())
                             .foregroundColor(.sbTextSecondary)
                     }
@@ -191,7 +191,7 @@ struct ActiveChallengeCard: View {
                                 .foregroundColor(Color.sbAccent)
                         }
                     } else {
-                        Text(def.dailyGoalDescription)
+                        Text(LocalizedStringKey(def.dailyGoalDescription))
                             .font(SBFont.label(11))
                             .foregroundColor(.sbTextSecondary)
                             .lineLimit(1)
@@ -229,11 +229,11 @@ private struct CompletedBadge: View {
                     .foregroundColor(Color.sbAccent)
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(definition.name)
+                Text(LocalizedStringKey(definition.name))
                     .font(SBFont.body())
                     .fontWeight(.semibold)
                     .foregroundColor(.sbTextPrimary)
-                Text("Completed · \(definition.durationDays) days")
+                Text(verbatim: String.localizedStringWithFormat(NSLocalizedString("Completed · %lld days", comment: ""), definition.durationDays))
                     .font(SBFont.caption())
                     .foregroundColor(.sbTextSecondary)
             }
@@ -318,7 +318,7 @@ struct ChallengeLibraryView: View {
 
     private func filterChip(_ label: String, _ cat: ChallengeCategory?) -> some View {
         Button { withAnimation { filter = cat } } label: {
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(SBFont.caption())
                 .foregroundColor(filter == cat ? .white : .sbTextSecondary)
                 .padding(.horizontal, 14)
@@ -347,16 +347,16 @@ private struct LibraryChallengeRow: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(definition.name)
+                Text(LocalizedStringKey(definition.name))
                     .font(SBFont.heading(15))
                     .foregroundColor(.sbTextPrimary)
-                Text(definition.subtitle)
+                Text(LocalizedStringKey(definition.subtitle))
                     .font(SBFont.caption())
                     .foregroundColor(.sbTextSecondary)
                 HStack(spacing: 4) {
                     Image(systemName: "calendar")
                         .font(.system(size: 10))
-                    Text("\(definition.durationDays) days")
+                    Text(verbatim: String.localizedStringWithFormat(NSLocalizedString("%lld days", comment: ""), definition.durationDays))
                 }
                 .font(SBFont.label(10))
                 .foregroundColor(.sbTextSecondary)

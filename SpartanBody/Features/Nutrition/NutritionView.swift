@@ -4,9 +4,11 @@ import Charts
 struct NutritionView: View {
     @ObservedObject private var store   = FoodLogStore.shared
     @ObservedObject private var profile = UserProfile.shared
+    @ObservedObject private var planStore = PlanStore.shared
+    /// Today's targets from the coach's plan, same as the dashboard's.
+    private var target: MacroTarget { planStore.todayTargets(for: profile) }
 
     @State private var addingMeal:    MealType?
-    @State private var showFoodScanner = false
 
     var body: some View {
         NavigationStack {
@@ -36,9 +38,6 @@ struct NutritionView: View {
         .sheet(item: $addingMeal) { meal in
             FoodSearchView(meal: meal)
         }
-        .sheet(isPresented: $showFoodScanner) {
-            FoodScannerView()
-        }
     }
 
     // MARK: - Header
@@ -55,11 +54,6 @@ struct NutritionView: View {
             }
             Spacer()
             HStack(spacing: 14) {
-                // AI food scanner hidden for v1 — re-enable once the Cloudflare
-                // Worker is deployed (see CloudflareWorker/README.md).
-                // Button { showFoodScanner = true } label: {
-                //     Image(systemName: "camera.fill").font(.system(size: 20)).foregroundColor(.sbAccent)
-                // }
                 Button { addingMeal = .snack } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 26))
@@ -106,7 +100,7 @@ struct NutritionView: View {
     // MARK: - Calorie card
 
     private var calorieCard: some View {
-        let goal      = Double(profile.dailyCalorieTarget)
+        let goal      = Double(target.kcal)
         let consumed  = store.todayCalories
         let remaining = max(0, goal - consumed)
         let progress  = min(1, consumed / max(1, goal))
@@ -118,7 +112,7 @@ struct NutritionView: View {
                     .font(SBFont.heading())
                     .foregroundColor(.sbTextPrimary)
                 Spacer()
-                Text("Goal: \(profile.dailyCalorieTarget) kcal")
+                Text(verbatim: String(format: NSLocalizedString("Goal: %lld kcal", comment: ""), target.kcal))
                     .font(SBFont.caption())
                     .foregroundColor(.sbTextSecondary)
             }
@@ -152,7 +146,7 @@ struct NutritionView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     calorieStat("Consumed",  "\(Int(consumed)) kcal",  .sbAccent)
                     calorieStat("Remaining", "\(Int(remaining)) kcal", over ? .sbRed : .sbTextPrimary)
-                    calorieStat("Goal",      "\(profile.dailyCalorieTarget) kcal", .sbTextSecondary)
+                    calorieStat("Goal",      "\(target.kcal) kcal", .sbTextSecondary)
                 }
                 Spacer()
             }
@@ -173,9 +167,9 @@ struct NutritionView: View {
     // MARK: - Macros card
 
     private var macrosCard: some View {
-        let pGoal = Double(profile.dailyProteinTarget)
-        let cGoal = Double(profile.dailyCalorieTarget) * 0.45 / 4
-        let fGoal = Double(profile.dailyCalorieTarget) * 0.25 / 9
+        let pGoal = Double(target.protein)
+        let cGoal = Double(target.carbs)
+        let fGoal = Double(target.fat)
 
         return VStack(spacing: 14) {
             Text("Macros")
@@ -207,7 +201,7 @@ struct NutritionView: View {
                     .foregroundColor(.sbTextPrimary)
                 Spacer()
                 if avg > 0 {
-                    Text("Avg \(Int(avg)) kcal")
+                    Text(verbatim: String(format: NSLocalizedString("Avg %lld kcal", comment: ""), Int(avg)))
                         .font(SBFont.caption())
                         .foregroundColor(.sbTextSecondary)
                 }
@@ -407,7 +401,7 @@ private struct FoodEntryRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(Int(entry.nutrition.calories)) kcal")
                     .font(SBFont.body()).fontWeight(.semibold).foregroundColor(.sbTextPrimary)
-                Text(String(format: "P%.0f  C%.0f  F%.0f",
+                Text(String(format: NSLocalizedString("food.macros %.0f %.0f %.0f", comment: ""),
                             entry.nutrition.protein, entry.nutrition.carbs, entry.nutrition.fat))
                     .font(SBFont.label(10)).foregroundColor(.sbTextSecondary)
             }

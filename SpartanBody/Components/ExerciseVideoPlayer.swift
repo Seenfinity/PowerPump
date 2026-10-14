@@ -4,13 +4,14 @@ import AVKit
 // Plays a bundled MP4 in a seamless loop with no controls.
 struct ExerciseVideoPlayer: View {
     let videoName: String   // filename without extension, e.g. "bench_press"
+    var fill = false
 
     @StateObject private var player = LoopingPlayer()
 
     var body: some View {
         Group {
             if player.isReady {
-                VideoPlayerLayer(player: player.avPlayer)
+                VideoPlayerLayer(player: player.avPlayer, fill: fill)
             } else {
                 // Fallback while loading
                 Color.sbSurface
@@ -28,14 +29,17 @@ struct ExerciseVideoPlayer: View {
 
 private struct VideoPlayerLayer: UIViewRepresentable {
     let player: AVPlayer
+    var fill = false
 
     func makeUIView(context: Context) -> PlayerView {
         let view = PlayerView()
         view.player = player
+        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
         return view
     }
     func updateUIView(_ uiView: PlayerView, context: Context) {
         uiView.player = player
+        uiView.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
     }
 }
 
@@ -46,7 +50,6 @@ final class PlayerView: UIView {
         get { playerLayer.player }
         set {
             playerLayer.player = newValue
-            playerLayer.videoGravity = .resizeAspect
         }
     }
 }
