@@ -82,6 +82,9 @@ struct WorkoutsView: View {
         }
         .sheet(isPresented: $showRunningPrograms) {
             RunningProgramsView()
+                // Close with the X: a drag on the page used to pull the whole
+                // sheet down and it looked like the screen was moving.
+                .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showSports) {
             SportsCatalogView()

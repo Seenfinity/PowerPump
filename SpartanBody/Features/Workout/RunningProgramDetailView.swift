@@ -24,6 +24,7 @@ struct RunningProgramDetailView: View {
                     Spacer(minLength: 120)
                 }
             }
+            .noOverscrollBounce()
             VStack { Spacer(); startButton }
         }
         .navigationBarTitleDisplayMode(.inline)

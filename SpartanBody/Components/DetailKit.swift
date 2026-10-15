@@ -193,3 +193,10 @@ extension View {
         background(EdgeSwipeBackOnly().frame(width: 0, height: 0))
     }
 }
+
+extension View {
+    /// No rubber-band stretch when the page already fits or is pulled past its ends.
+    @ViewBuilder func noOverscrollBounce() -> some View {
+        if #available(iOS 16.4, *) { scrollBounceBehavior(.basedOnSize) } else { self }
+    }
+}
