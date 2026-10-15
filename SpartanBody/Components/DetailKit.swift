@@ -149,3 +149,33 @@ struct DetailTopBar: View {
         .allowsHitTesting(visible)
     }
 }
+
+/// iOS 26 lets you go back by swiping from anywhere on the screen. On pages
+/// you scroll up and down, a slightly sideways finger (or a click in the
+/// Simulator) started that gesture and the whole page slid to the side.
+/// Going back still works from the left edge and with the back button.
+struct EdgeSwipeBackOnly: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ vc: Controller, context: Context) {}
+
+    final class Controller: UIViewController {
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            if #available(iOS 26.0, *) {
+                navigationController?.interactiveContentPopGestureRecognizer?.isEnabled = false
+            }
+        }
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            if #available(iOS 26.0, *) {
+                navigationController?.interactiveContentPopGestureRecognizer?.isEnabled = true
+            }
+        }
+    }
+}
+
+extension View {
+    func edgeSwipeBackOnly() -> some View {
+        background(EdgeSwipeBackOnly().frame(width: 0, height: 0))
+    }
+}

@@ -66,6 +66,7 @@ struct ExerciseDetailView: View {
             topBar
         }
         .toolbar(.hidden, for: .navigationBar)
+        .edgeSwipeBackOnly()
         .sheet(isPresented: $showLogSheet) {
             LogExerciseSheet(exercise: exercise, isPresented: $showLogSheet)
         }

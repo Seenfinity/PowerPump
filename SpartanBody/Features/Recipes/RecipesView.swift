@@ -578,6 +578,7 @@ struct RecipeDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { servings = initialServings }
+        .edgeSwipeBackOnly()
     }
 
     // MARK: Header

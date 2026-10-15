@@ -35,6 +35,7 @@ struct SportDetailView: View {
             VStack { Spacer(); startButton }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .edgeSwipeBackOnly()
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text(verbatim: PT(sport.nameKey))
