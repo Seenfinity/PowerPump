@@ -40,6 +40,8 @@ struct ProgramSessionView: View {
     @State private var skipped: TimeInterval = 0
     /// Where the session is (time trained plus time skipped).
     @State private var position: TimeInterval = 0
+    /// Skipped walking or running, which doesn't count towards finishing the day.
+    @State private var skippedWork: TimeInterval = 0
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -236,9 +238,15 @@ struct ProgramSessionView: View {
     }
 
     /// Warm-up and cool-down can be skipped; the work in between can't.
-    /// Shown from the start, before tapping Start too, so it's easy to find.
-    private var canSkip: Bool {
-        !didFinish && (current.kind == .warmup || current.kind == .cooldown)
+    /// Any stretch can be skipped, from the start, before tapping Start too.
+    private var canSkip: Bool { !didFinish }
+
+    private var skipLabel: LocalizedStringKey {
+        switch current.kind {
+        case .warmup:   return "program.skip.warmup"
+        case .cooldown: return "program.skip.cooldown"
+        default:        return "program.skip.interval"
+        }
     }
 
     private var skipButton: some View {
@@ -253,11 +261,12 @@ struct ProgramSessionView: View {
                 run.resume()
                 startTimer()
             }
-            skipped += TimeInterval(remainingInCurrent)
+            let jump = TimeInterval(remainingInCurrent)
+            if current.kind != .warmup && current.kind != .cooldown { skippedWork += jump }
+            skipped += jump
             tick(0)
         } label: {
-            Label(LocalizedStringKey(current.kind == .warmup ? "program.skip.warmup" : "program.skip.cooldown"),
-                  systemImage: "forward.end.fill")
+            Label(skipLabel, systemImage: "forward.end.fill")
                 .font(SBFont.caption())
                 .fontWeight(.semibold)
                 .foregroundColor(.sbAccent)
@@ -402,6 +411,7 @@ struct ProgramSessionView: View {
         elapsedInCurrent = 0
         totalElapsed = 0
         skipped = 0
+        skippedWork = 0
         position = 0
         sessionStartedAt = Date()
         pausedAccum = 0
@@ -421,7 +431,7 @@ struct ProgramSessionView: View {
         // completes the day: saving after one minute used to unlock the next
         // day, so the whole program could be skipped by accident.
         // A skipped warm-up counts as done: it's the work in between that matters.
-        if day.totalSeconds == 0 || position >= Double(day.totalSeconds) * 0.8 {
+        if day.totalSeconds == 0 || position - skippedWork >= Double(day.totalSeconds) * 0.8 {
             let globalDay = progress.globalDay(in: program,
                                                weekNumber: weekNumber,
                                                dayNumber: day.dayNumber)
@@ -495,7 +505,10 @@ struct ProgramSessionView: View {
             let globalDay = progress.globalDay(in: program,
                                                weekNumber: weekNumber,
                                                dayNumber: day.dayNumber)
-            progress.markComplete(globalDay, in: program)
+            // Skipping the walking and running doesn't count as doing the day.
+            if position - skippedWork >= Double(day.totalSeconds) * 0.8 {
+                progress.markComplete(globalDay, in: program)
+            }
             coach.announceFinish()
             coach.cueFinish()
             if let session, session.route.count >= 2 {
