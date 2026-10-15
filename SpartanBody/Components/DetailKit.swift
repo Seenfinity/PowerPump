@@ -171,11 +171,26 @@ struct EdgeSwipeBackOnly: UIViewControllerRepresentable {
             return nil
         }
 
-        func apply(enabled: Bool) {
-            guard let nav else { return }
-            if #available(iOS 26.0, *) {
-                nav.interactiveContentPopGestureRecognizer?.isEnabled = enabled
+        /// Every gesture that could drag this page around: back from anywhere,
+        /// back from the edge, and pulling down the sheet it sits in. The back
+        /// button and the sheet's close button still work.
+        private var draggers: [UIGestureRecognizer] {
+            guard let nav else { return [] }
+            var list: [UIGestureRecognizer] = []
+            if let edge = nav.interactivePopGestureRecognizer { list.append(edge) }
+            if #available(iOS 26.0, *), let content = nav.interactiveContentPopGestureRecognizer { list.append(content) }
+            var v: UIView? = nav.view.superview
+            while let cur = v {
+                if String(describing: type(of: cur)).contains("DropShadow") {
+                    list += (cur.gestureRecognizers ?? []).filter { $0 is UIPanGestureRecognizer }
+                }
+                v = cur.superview
             }
+            return list
+        }
+
+        func apply(enabled: Bool) {
+            draggers.forEach { $0.isEnabled = enabled }
         }
 
         override func viewWillAppear(_ animated: Bool) { super.viewWillAppear(animated); apply(enabled: false) }
