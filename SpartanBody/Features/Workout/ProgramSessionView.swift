@@ -35,6 +35,11 @@ struct ProgramSessionView: View {
     @State private var showFinishConfirm = false
     @State private var timer: Timer?
     @State private var finishedSession: RunSession?
+    /// Seconds jumped over with "skip warm-up": they move the session along
+    /// without counting as time trained.
+    @State private var skipped: TimeInterval = 0
+    /// Where the session is (time trained plus time skipped).
+    @State private var position: TimeInterval = 0
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -142,6 +147,7 @@ struct ProgramSessionView: View {
                     completionCard
                 } else {
                     intervalCard
+                    if canSkip { skipButton }
                     progressBar
                     statsRow
                     controlsRow
@@ -229,8 +235,31 @@ struct ProgramSessionView: View {
         }
     }
 
+    /// Warm-up and cool-down can be skipped; the work in between can't.
+    private var canSkip: Bool {
+        didStart && !isPaused && (current.kind == .warmup || current.kind == .cooldown)
+    }
+
+    private var skipButton: some View {
+        Button {
+            HapticManager.light()
+            skipped += TimeInterval(remainingInCurrent)
+            tick(0)
+        } label: {
+            Label(LocalizedStringKey(current.kind == .warmup ? "program.skip.warmup" : "program.skip.cooldown"),
+                  systemImage: "forward.end.fill")
+                .font(SBFont.caption())
+                .fontWeight(.semibold)
+                .foregroundColor(.sbAccent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color.sbAccentDim))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var progressBar: some View {
-        let fraction = day.totalSeconds == 0 ? 0 : Double(totalElapsed) / Double(day.totalSeconds)
+        let fraction = day.totalSeconds == 0 ? 0 : min(1, Double(position) / Double(day.totalSeconds))
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.sbSurfaceRaised)
@@ -362,6 +391,8 @@ struct ProgramSessionView: View {
         currentIndex = 0
         elapsedInCurrent = 0
         totalElapsed = 0
+        skipped = 0
+        position = 0
         sessionStartedAt = Date()
         pausedAccum = 0
         pauseStartedAt = nil
@@ -379,7 +410,8 @@ struct ProgramSessionView: View {
         // Stopping early keeps the run, but only a (nearly) finished session
         // completes the day: saving after one minute used to unlock the next
         // day, so the whole program could be skipped by accident.
-        if day.totalSeconds == 0 || totalElapsed >= Double(day.totalSeconds) * 0.8 {
+        // A skipped warm-up counts as done: it's the work in between that matters.
+        if day.totalSeconds == 0 || position >= Double(day.totalSeconds) * 0.8 {
             let globalDay = progress.globalDay(in: program,
                                                weekNumber: weekNumber,
                                                dayNumber: day.dayNumber)
@@ -424,6 +456,7 @@ struct ProgramSessionView: View {
         // whether the timer fired on time or after a long background gap.
         let realElapsed = max(0, Date().timeIntervalSince(start) - pausedAccum)
         totalElapsed = realElapsed
+        position = realElapsed + skipped
 
         // Find which interval we're in by walking the cumulative durations.
         // If the user backgrounded the app long enough to skip past one or
@@ -433,9 +466,9 @@ struct ProgramSessionView: View {
         var newInCurrent: TimeInterval = 0
         for (i, interval) in day.intervals.enumerated() {
             let end = cumSum + TimeInterval(interval.duration)
-            if realElapsed < end {
+            if position < end {
                 newIndex = i
-                newInCurrent = realElapsed - cumSum
+                newInCurrent = position - cumSum
                 break
             }
             cumSum = end
@@ -524,11 +557,15 @@ private struct RunMapBackground: UIViewRepresentable {
         map.userTrackingMode = .follow
         map.isPitchEnabled = false
         map.isRotateEnabled = false
+        // Only a backdrop: a finger on it used to drag it away from the runner
+        // and it stayed there. It just follows you now.
+        map.isUserInteractionEnabled = false
         map.delegate = context.coordinator
         return map
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
+        if map.userTrackingMode != .follow { map.setUserTrackingMode(.follow, animated: true) }
         map.removeOverlays(map.overlays)
         if routeCoordinates.count >= 2 {
             let polyline = MKPolyline(coordinates: routeCoordinates, count: routeCoordinates.count)
