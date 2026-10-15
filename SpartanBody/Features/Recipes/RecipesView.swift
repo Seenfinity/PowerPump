@@ -304,7 +304,11 @@ private struct FeaturedRecipeCard: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             RecipeArt(recipe: recipe, glyphSize: 58, glyphAlignment: .topTrailing)
-            LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .bottom, endPoint: .center)
+            // Dark enough at the bottom for white text on any photo.
+            LinearGradient(stops: [.init(color: .black.opacity(0.85), location: 0),
+                                   .init(color: .black.opacity(0.35), location: 0.5),
+                                   .init(color: .clear, location: 0.8)],
+                           startPoint: .bottom, endPoint: .top)
             VStack(alignment: .leading, spacing: 6) {
                 Text("recipes.featured")
                     .font(SBFont.label(11))
@@ -373,8 +377,8 @@ private struct RecipeTile: View {
 
 // MARK: - Picture
 
-/// The picture of a recipe: a colour for its kind of food and a line drawing
-/// of the dish, in place of the old emoji.
+/// The picture of a recipe: a photo of the dish (Assets: recipe_<id>), or a
+/// colour for its kind of food with a line drawing when there's no photo.
 struct RecipeArt: View {
     let recipe: Recipe
     var glyphSize: CGFloat = 48
@@ -392,7 +396,21 @@ struct RecipeArt: View {
         }
     }
 
+    private var photo: UIImage? { UIImage(named: "recipe_" + recipe.id) }
+
     var body: some View {
+        if let photo {
+            // Fills its frame without pushing the layout wider than the screen.
+            Color.sbSurfaceRaised
+                .overlay(Image(uiImage: photo).resizable().scaledToFill())
+                .clipped()
+                .accessibilityHidden(true)
+        } else {
+            drawing
+        }
+    }
+
+    private var drawing: some View {
         ZStack(alignment: glyphAlignment) {
             LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
             RadialGradient(colors: [.white.opacity(0.22), .clear], center: UnitPoint(x: 0.3, y: 0.2),
@@ -567,7 +585,7 @@ struct RecipeDetailView: View {
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
             RecipeArt(recipe: recipe, glyphSize: 84, glyphOffset: -40)
-            LinearGradient(stops: [.init(color: .black.opacity(0.25), location: 0),
+            LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0),
                                    .init(color: .clear, location: 0.3),
                                    .init(color: .clear, location: 0.5),
                                    .init(color: .sbBackground, location: 1)],
@@ -583,6 +601,8 @@ struct RecipeDetailView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
             }
+            // Keeps the words readable over light parts of the photo.
+            .shadow(color: .sbBackground.opacity(0.8), radius: 6)
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
         }
