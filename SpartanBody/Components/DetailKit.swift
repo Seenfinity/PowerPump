@@ -153,23 +153,37 @@ struct DetailTopBar: View {
 /// iOS 26 lets you go back by swiping from anywhere on the screen. On pages
 /// you scroll up and down, a slightly sideways finger (or a click in the
 /// Simulator) started that gesture and the whole page slid to the side.
-/// Going back still works from the left edge and with the back button.
+/// Going back still works with the back button.
 struct EdgeSwipeBackOnly: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> Controller { Controller() }
-    func updateUIViewController(_ vc: Controller, context: Context) {}
+    func updateUIViewController(_ vc: Controller, context: Context) { vc.apply(enabled: false) }
 
     final class Controller: UIViewController {
-        override func viewDidAppear(_ animated: Bool) {
-            super.viewDidAppear(animated)
+        /// The navigation controller holding this page: through the parents
+        /// first, then the responder chain (SwiftUI nests hosting controllers).
+        private var nav: UINavigationController? {
+            if let n = navigationController { return n }
+            var r: UIResponder? = view
+            while let next = r?.next {
+                if let n = next as? UINavigationController { return n }
+                r = next
+            }
+            return nil
+        }
+
+        func apply(enabled: Bool) {
+            guard let nav else { return }
             if #available(iOS 26.0, *) {
-                navigationController?.interactiveContentPopGestureRecognizer?.isEnabled = false
+                nav.interactiveContentPopGestureRecognizer?.isEnabled = enabled
             }
         }
-        override func viewWillDisappear(_ animated: Bool) {
-            super.viewWillDisappear(animated)
-            if #available(iOS 26.0, *) {
-                navigationController?.interactiveContentPopGestureRecognizer?.isEnabled = true
-            }
+
+        override func viewWillAppear(_ animated: Bool) { super.viewWillAppear(animated); apply(enabled: false) }
+        override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); apply(enabled: false) }
+        override func viewDidDisappear(_ animated: Bool) {
+            super.viewDidDisappear(animated)
+            // Only once this page is really gone, not while a sheet covers it.
+            if isMovingFromParent || parent == nil { apply(enabled: true) }
         }
     }
 }

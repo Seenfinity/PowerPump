@@ -236,13 +236,23 @@ struct ProgramSessionView: View {
     }
 
     /// Warm-up and cool-down can be skipped; the work in between can't.
+    /// Shown from the start, before tapping Start too, so it's easy to find.
     private var canSkip: Bool {
-        didStart && !isPaused && (current.kind == .warmup || current.kind == .cooldown)
+        !didFinish && (current.kind == .warmup || current.kind == .cooldown)
     }
 
     private var skipButton: some View {
         Button {
             HapticManager.light()
+            if !didStart { startSession() }
+            if isPaused {
+                // Resume so the next stretch starts counting right away.
+                if let p = pauseStartedAt { pausedAccum += Date().timeIntervalSince(p) }
+                pauseStartedAt = nil
+                isPaused = false
+                run.resume()
+                startTimer()
+            }
             skipped += TimeInterval(remainingInCurrent)
             tick(0)
         } label: {
