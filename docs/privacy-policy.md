@@ -1,4 +1,4 @@
-# PowerPump — Privacy Policy
+# PowerPump: Privacy Policy
 
 **Last updated: October 16, 2026**
 
@@ -30,7 +30,7 @@ When you use the route planner, PowerPump asks Apple Maps for walking directions
 
 ## Camera, videos & form analysis
 
-- **Live form check:** when you start a live form check, PowerPump uses the camera to detect your body position frame by frame with Apple's on-device Vision framework. Camera frames are processed in memory only — they are never recorded, stored, or uploaded.
+- **Live form check:** when you start a live form check, PowerPump uses the camera to detect your body position frame by frame with Apple's on-device Vision framework. Camera frames are processed in memory only. They are never recorded, stored, or uploaded.
 - **Video form analysis:** if you choose to analyze a workout video, you pick it with the system photo/video picker, and PowerPump only accesses the video you select. It is analyzed on your device; a temporary copy is kept only while its result is on screen and is then deleted. The video is never uploaded or shared. Only the result (reps, score, and feedback) is saved on your device.
 - **Barcode scanner:** the camera is also used to read product barcodes (see below).
 
@@ -66,7 +66,7 @@ Questions? Email us at **support@powerpumpgym.com**.
 
 ---
 
-# PowerPump — Política de Privacidad
+# PowerPump: Política de Privacidad
 
 **Última actualización: 16 de octubre de 2026**
 
