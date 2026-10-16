@@ -126,7 +126,7 @@ extension PhoneConnectivityManager: WCSessionDelegate {
 
     // MARK: - Watch payload de-duplication
 
-    private let processedIDsKey = "sb_watch_processed_workout_ids"
+    private var processedIDsKey: String { "sb_watch_processed_workout_ids" }
 
     private var processedWorkoutIDs: [String] {
         UserDefaults.standard.stringArray(forKey: processedIDsKey) ?? []
