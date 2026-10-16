@@ -17,7 +17,7 @@ Límites de Apple: Nombre 30 caracteres · Subtítulo 30 · Palabras clave 100 �
 `gym,workout,running,run,tracker,gps,route,pace,calorie,nutrition,sports,fitness,walk,streak`
 
 **Promotional text:**
-Log gym workouts, run with GPS, and let AI plan a route that guides you by voice. Track 28 sports, count calories, and sync with Apple Health — all free.
+Log gym workouts, run with GPS, and get a smart route that guides you by voice. Track 28 sports, count calories, and sync with Apple Health — all free.
 
 **Description:**
 
@@ -32,7 +32,7 @@ GYM
 RUN & MOVE
 • GPS run, walk, or hike with your route traced live on the map
 • Real-time pace, distance, and calories — works with the screen locked
-• AI route planner: pick a distance and PowerPump builds a loop from where you are, then guides you turn-by-turn BY VOICE so you never get lost
+• Smart route planner: pick a distance and PowerPump builds a loop from where you are, then guides you turn-by-turn BY VOICE so you never get lost
 • Voice-guided walk-to-run programs, including a 12-week Couch-to-5K
 • 28 sports (cycling, swimming, yoga, tennis, boxing and more), each with its own history and route maps
 
@@ -68,7 +68,7 @@ Available in English, Spanish, French, Italian, and Portuguese — with a voice 
 `gimnasio,gym,rutina,correr,running,gps,ruta,ritmo,calorias,nutricion,deportes,fitness,peso,racha`
 
 **Texto promocional:**
-Registra entrenamientos, corre con GPS y deja que la IA te trace una ruta que te guía por voz. Registra 28 deportes, cuenta calorías y sincroniza con Apple Health — gratis.
+Registra entrenamientos, corre con GPS y deja que PowerPump te trace una ruta que te guía por voz. 28 deportes, calorías y Apple Health — gratis.
 
 **Descripción:**
 
@@ -83,7 +83,7 @@ GIMNASIO
 CORRE Y MUÉVETE
 • Corre, camina o haz senderismo con GPS y tu ruta trazada en vivo en el mapa
 • Ritmo, distancia y calorías en tiempo real — funciona con la pantalla bloqueada
-• Planificador de rutas con IA: elige una distancia y PowerPump crea un circuito desde donde estás, y te guía giro a giro POR VOZ para que no te pierdas
+• Planificador de rutas inteligente: elige una distancia y PowerPump crea un circuito desde donde estás, y te guía giro a giro POR VOZ para que no te pierdas
 • Programas guiados por voz de andar a correr, incluido un plan de 12 semanas del sofá al 5K
 • 28 deportes (ciclismo, natación, yoga, tenis, boxeo y más), cada uno con su historial y mapas de ruta
 
@@ -119,7 +119,7 @@ Disponible en español, inglés, francés, italiano y portugués — con coach d
 `musculation,gym,entrainement,course,running,gps,itineraire,allure,calories,nutrition,sport,fitness,eau`
 
 **Texte promotionnel :**
-Enregistrez vos séances, courez avec le GPS et laissez l'IA tracer un itinéraire qui vous guide à la voix. 28 sports, calories et Apple Santé — gratuit.
+Enregistrez vos séances, courez avec le GPS et laissez PowerPump tracer un itinéraire qui vous guide à la voix. 28 sports, calories et Apple Santé — gratuit.
 
 **Description :**
 
@@ -134,7 +134,7 @@ SALLE
 COUREZ & BOUGEZ
 • Course, marche ou randonnée avec GPS et itinéraire tracé en direct
 • Allure, distance et calories en temps réel — fonctionne écran verrouillé
-• Planificateur d'itinéraire IA : choisissez une distance, PowerPump crée une boucle depuis votre position et vous guide virage par virage À LA VOIX
+• Planificateur d'itinéraire intelligent : choisissez une distance, PowerPump crée une boucle depuis votre position et vous guide virage par virage À LA VOIX
 • Programmes vocaux de la marche à la course, dont un plan canapé-5 km de 12 semaines
 • 28 sports (vélo, natation, yoga, tennis, boxe et plus), chacun avec son historique et ses cartes
 
@@ -170,7 +170,7 @@ Disponible en français, anglais, espagnol, italien et portugais — avec un coa
 `palestra,allenamento,corsa,running,gps,percorso,ritmo,calorie,nutrizione,sport,fitness,peso,acqua`
 
 **Testo promozionale:**
-Registra allenamenti, corri col GPS e lascia che l'IA crei un percorso che ti guida a voce. 28 sport, calorie e Apple Salute — gratis.
+Registra allenamenti, corri col GPS e lascia che PowerPump crei un percorso che ti guida a voce. 28 sport, calorie e Apple Salute — gratis.
 
 **Descrizione:**
 
@@ -185,7 +185,7 @@ PALESTRA
 CORRI & MUOVITI
 • Corri, cammina o fai trekking con GPS e percorso tracciato dal vivo
 • Ritmo, distanza e calorie in tempo reale — funziona a schermo bloccato
-• Pianificatore di percorsi IA: scegli una distanza, PowerPump crea un anello dalla tua posizione e ti guida svolta per svolta A VOCE
+• Pianificatore di percorsi intelligente: scegli una distanza, PowerPump crea un anello dalla tua posizione e ti guida svolta per svolta A VOCE
 • Programmi vocali dalla camminata alla corsa, incluso un piano divano-5K di 12 settimane
 • 28 sport (ciclismo, nuoto, yoga, tennis, boxe e altro), ognuno con cronologia e mappe
 
@@ -221,7 +221,7 @@ Disponibile in italiano, inglese, spagnolo, francese e portoghese — con coach 
 `academia,treino,corrida,correr,running,gps,rota,ritmo,calorias,nutricao,esportes,fitness,peso,agua`
 
 **Texto promocional:**
-Registre treinos, corra com GPS e deixe a IA traçar uma rota que guia você por voz. 28 esportes, calorias e Apple Saúde — grátis.
+Registre treinos, corra com GPS e deixe o PowerPump traçar uma rota que guia você por voz. 28 esportes, calorias e Apple Saúde — grátis.
 
 **Descrição:**
 
@@ -236,7 +236,7 @@ ACADEMIA
 CORRA & SE MOVA
 • Corra, caminhe ou faça trilha com GPS e sua rota traçada ao vivo
 • Ritmo, distância e calorias em tempo real — funciona com a tela bloqueada
-• Planejador de rotas com IA: escolha uma distância e o PowerPump cria um circuito de onde você está e guia você curva a curva POR VOZ para não se perder
+• Planejador de rotas inteligente: escolha uma distância e o PowerPump cria um circuito de onde você está e guia você curva a curva POR VOZ para não se perder
 • Programas por voz da caminhada à corrida, incluindo um plano sofá-5K de 12 semanas
 • 28 esportes (ciclismo, natação, yoga, tênis, boxe e mais), cada um com histórico e mapas
 
