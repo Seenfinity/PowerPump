@@ -209,9 +209,35 @@ extension View {
     }
 }
 
+/// Finds the UIScrollView behind a SwiftUI ScrollView and turns off its
+/// rubber band. `scrollBounceBehavior(.basedOnSize)` only does that when the
+/// page fits, so long pages still slid down when pulled from the top.
+private struct ScrollBounceOff: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.isUserInteractionEnabled = false
+        return v
+    }
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            var cur = uiView.superview
+            while let view = cur {
+                if let scroll = view as? UIScrollView {
+                    scroll.bounces = false
+                    scroll.alwaysBounceVertical = false
+                    scroll.alwaysBounceHorizontal = false
+                    return
+                }
+                cur = view.superview
+            }
+        }
+    }
+}
+
 extension View {
-    /// No rubber-band stretch when the page already fits or is pulled past its ends.
-    @ViewBuilder func noOverscrollBounce() -> some View {
-        if #available(iOS 16.4, *) { scrollBounceBehavior(.basedOnSize) } else { self }
+    /// No rubber-band stretch: the page stops at its ends instead of sliding.
+    /// Apply it to the ScrollView's content, not to the ScrollView itself.
+    func noOverscrollBounce() -> some View {
+        background(ScrollBounceOff().frame(width: 0, height: 0))
     }
 }

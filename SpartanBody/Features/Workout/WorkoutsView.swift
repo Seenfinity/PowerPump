@@ -80,11 +80,10 @@ struct WorkoutsView: View {
         .fullScreenCover(isPresented: $showRunning) {
             RunningView()
         }
-        .sheet(isPresented: $showRunningPrograms) {
+        // Full screen, closed with its X: as a sheet, any drag on the page
+        // pulled the whole sheet and it looked like the screen was moving.
+        .fullScreenCover(isPresented: $showRunningPrograms) {
             RunningProgramsView()
-                // Close with the X: a drag on the page used to pull the whole
-                // sheet down and it looked like the screen was moving.
-                .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showSports) {
             SportsCatalogView()

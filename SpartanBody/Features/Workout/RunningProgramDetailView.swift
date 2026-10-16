@@ -13,18 +13,24 @@ struct RunningProgramDetailView: View {
     var body: some View {
         ZStack {
             Color.sbBackground.ignoresSafeArea()
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    header
-                    tabSelector
-                    Group {
-                        if selectedTab == .intro { introContent } else { progressContent }
+            // The page is pinned to the screen's width: something inside came
+            // out a little wider and let the whole page slide sideways.
+            GeometryReader { geo in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        header
+                        tabSelector
+                        Group {
+                            if selectedTab == .intro { introContent } else { progressContent }
+                        }
+                        .padding(.horizontal, 20)
+                        Spacer(minLength: 120)
                     }
-                    .padding(.horizontal, 20)
-                    Spacer(minLength: 120)
+                    .frame(width: geo.size.width)
+                    .clipped()
+                    .noOverscrollBounce()
                 }
             }
-            .noOverscrollBounce()
             VStack { Spacer(); startButton }
         }
         .navigationBarTitleDisplayMode(.inline)
